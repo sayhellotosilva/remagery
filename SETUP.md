@@ -1,6 +1,6 @@
 # Remagery web app: setup
 
-The app is online at **https://sayhellotosilva.github.io/remagery/**.
+The app is online at **https://remagery.pages.dev** (Cloudflare Pages, updates by itself from GitHub). The old address https://sayhellotosilva.github.io/remagery/ still works.
 
 Two more parts, about 30–40 minutes:
 
