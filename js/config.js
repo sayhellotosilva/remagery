@@ -1,7 +1,7 @@
 // Remagery settings for this copy of the web app.
 // VOICE_SERVER: the address of your voice server (Cloudflare Worker). See SETUP.md, step 2.
 // Leave it empty to use the browser's own voice (it stops when the phone locks).
-export const VOICE_SERVER = "";
+export const VOICE_SERVER = "https://long-frost-78a5.sayhellotosilva.workers.dev";
 
 // Google sign-in and Drive (see SETUP.md, step 2). Leave empty to use Remagery without an account.
 export const GOOGLE_CLIENT_ID = "489478449653-b5du0muci7lj8sscrinkt7ag2g9trrpf.apps.googleusercontent.com";   // OAuth client ID, ends in .apps.googleusercontent.com
