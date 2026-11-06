@@ -4,9 +4,9 @@
 export const VOICE_SERVER = "";
 
 // Google sign-in and Drive (see SETUP.md, step 2). Leave empty to use Remagery without an account.
-export const GOOGLE_CLIENT_ID = "";   // OAuth client ID, ends in .apps.googleusercontent.com
-export const GOOGLE_API_KEY = "";     // API key for the Google Drive picker
-export const GOOGLE_APP_ID = "";      // Google Cloud project number
+export const GOOGLE_CLIENT_ID = "489478449653-b5du0muci7lj8sscrinkt7ag2g9trrpf.apps.googleusercontent.com";   // OAuth client ID, ends in .apps.googleusercontent.com
+export const GOOGLE_API_KEY = "AIzaSyDTm97ESNh7evsIPzd_DYFVOisQJfthLDo";     // API key for the Google Drive picker
+export const GOOGLE_APP_ID = "489478449653";      // Google Cloud project number
 
 // Google voices offered in Settings (WaveNet: inside the 4 million free characters a month).
 export const VOICES = [
