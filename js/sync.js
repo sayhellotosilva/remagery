@@ -12,7 +12,8 @@ import * as G from "./google.js";
 
 const ROOT_KEY = "remagery.driveRoot";
 const GONE_KEY = "remagery.removed";
-let status = "";
+let status = "", lastError = "";
+export const syncError = () => lastError;
 const listeners = new Set();
 export const onSync = fn => { listeners.add(fn); return () => listeners.delete(fn); };
 const emit = (kind) => { for (const f of listeners) f(kind); };
@@ -163,11 +164,14 @@ export async function sync() {
       const file = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
       if (remote.id) await G.upload(file, { id: remote.id, mime: "application/json" });
       else await G.upload(file, { name: "library.json", parent: root, props: { remagery: "library" }, mime: "application/json" });
+      lastError = "";
       setStatus("");
       emit(changedLocal ? "library" : "done");
       return true;
     } catch (e) {
-      setStatus(e.status === 401 ? "Tap to sync" : "Not synced");
+      lastError = e.message || String(e);
+      console.warn("[Remagery] sync failed:", lastError);
+      setStatus(e.status === 401 ? "Tap to sync" : !G.hasDrive() ? "Drive not allowed" : "Not synced");
       emit("error");
       return false;
     } finally {

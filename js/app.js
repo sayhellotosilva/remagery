@@ -7,7 +7,7 @@ import { importPackage } from "./package.js";
 import { VOICES, DEFAULT_VOICE } from "./config.js";
 import { hasVoiceServer, usage, sample } from "./voice.js";
 import * as G from "./google.js";
-import { sync, onSync, syncStatus, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
+import { sync, onSync, syncStatus, syncError, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
 
 const $app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -150,7 +150,19 @@ function accountLine() {
   const st = syncStatus();
   const tokenOK = !!G.token();
   const text = (st && st.length < 22 ? st : st ? "Syncing" : "") || (tokenOK ? "Synced" : "Tap to sync");
-  const el = h(`<div id="acctSlot" class="acct"><button class="mono soft acct-btn" data-act="${tokenOK ? "settings" : "signin"}">${esc(email)} · ${esc(text)}</button></div>`);
+  const el = h(`<div id="acctSlot" class="acct"><button class="mono soft acct-btn">${esc(email)} · ${esc(text)}</button></div>`);
+  el.querySelector("button").onclick = () => {
+    if (!tokenOK) { G.signIn(); return; }
+    if (!G.hasDrive()) {
+      confirmDialog("Remagery can't use your Drive", "On Google's page, the box for Google Drive was left unticked. Sign in again and tick it, so Remagery can save your books in its own folder.", "Sign in again", () => G.signIn({ consent: true }));
+      return;
+    }
+    if (st && syncError()) {
+      confirmDialog("Not synced", "Google Drive answered: " + syncError(), "Try again", () => sync());
+      return;
+    }
+    settingsSheet();
+  };
   return el;
 }
 function refreshAccount() { const a = libraryEl && libraryEl.querySelector("#acctSlot"); if (a) a.replaceWith(accountLine()); }

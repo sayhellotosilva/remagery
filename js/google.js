@@ -15,6 +15,8 @@ function load() { try { return JSON.parse(localStorage.getItem(KEY) || "{}"); } 
 function save(v) { try { localStorage.setItem(KEY, JSON.stringify(v)); } catch (e) {} }
 
 export const account = () => load().email || null;
+/// False when you signed in but left the Google Drive box unticked on Google's page.
+export const hasDrive = () => { const s = load().scope; return !s || s.includes("drive.file"); };
 export function token() {
   const a = load();
   return a.token && a.expires > Date.now() + 60000 ? a.token : null;
@@ -24,7 +26,7 @@ export const signedIn = () => !!load().email || !!token();
 const appURL = () => location.origin + location.pathname;
 
 /// Goes to Google to sign in. silent: no screen if you've already allowed Remagery.
-export function signIn({ silent = false, intent = "" } = {}) {
+export function signIn({ silent = false, intent = "", consent = false } = {}) {
   const state = Math.random().toString(36).slice(2);
   try { sessionStorage.setItem("remagery.oauth", JSON.stringify({ state, intent, silent })); } catch (e) {}
   const p = new URLSearchParams({
@@ -34,6 +36,7 @@ export function signIn({ silent = false, intent = "" } = {}) {
   const email = account();
   if (email) p.set("login_hint", email);
   if (silent) p.set("prompt", "none");
+  else if (consent) p.set("prompt", "consent");
   location.assign("https://accounts.google.com/o/oauth2/v2/auth?" + p);
 }
 
@@ -49,6 +52,7 @@ export async function handleReturn() {
   if (h.get("error")) return { ok: false, silent: saved.silent, intent: saved.intent, error: h.get("error") };
   const a = load();
   a.token = h.get("access_token");
+  a.scope = h.get("scope") || "";
   a.expires = Date.now() + (+h.get("expires_in") || 3600) * 1000;
   save(a);
   try {
@@ -75,7 +79,11 @@ async function call(url, opts = {}) {
   if (!t) throw new DriveError("Not signed in", 401);
   const r = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + t } });
   if (r.status === 401) { const a = load(); a.token = null; save(a); throw new DriveError("Sign-in expired", 401); }
-  if (!r.ok) throw new DriveError(`Google Drive error ${r.status}`, r.status);
+  if (!r.ok) {
+    let why = "";
+    try { const j = await r.json(); why = (j.error && (j.error.message || (j.error.errors && j.error.errors[0] && j.error.errors[0].reason))) || ""; } catch (e) {}
+    throw new DriveError(`Google Drive ${r.status}: ${why}`.trim(), r.status);
+  }
   return r;
 }
 
@@ -95,7 +103,8 @@ export async function list(q, fields = "files(id,name,mimeType,appProperties,mod
 export async function createFolder(name, parent, props = {}) {
   const r = await call(`${API}/files?fields=id`, {
     method: "POST", headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: parent ? [parent] : [], appProperties: props }),
+    body: JSON.stringify(parent ? { name, mimeType: "application/vnd.google-apps.folder", parents: [parent], appProperties: props }
+      : { name, mimeType: "application/vnd.google-apps.folder", appProperties: props }),
   });
   return (await r.json()).id;
 }
@@ -103,7 +112,7 @@ export async function createFolder(name, parent, props = {}) {
 /// Uploads a new file, or replaces the content of an existing one (id).
 export async function upload(blob, { name, parent, id, props, mime, onProgress } = {}) {
   const type = mime || blob.type || "application/octet-stream";
-  const meta = id ? {} : { name, parents: parent ? [parent] : [], appProperties: props || {} };
+  const meta = id ? {} : parent ? { name, parents: [parent], appProperties: props || {} } : { name, appProperties: props || {} };
   const start = await call(`${UPLOAD}/files${id ? "/" + id : ""}?uploadType=resumable&fields=id`, {
     method: id ? "PATCH" : "POST",
     headers: { "Content-Type": "application/json; charset=UTF-8", "X-Upload-Content-Type": type },
