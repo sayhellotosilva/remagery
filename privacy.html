@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Remagery Privacy</title>
+<meta name="description" content="What Remagery does with your data.">
+<meta name="theme-color" content="#D8D8D5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161615" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+<style>
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-mode="light"]) { --paper: #161615; --ink: #E6E6E2; --soft: #8E8E8A; --line: #3A3A38; --sheet: #1F1F1E; color-scheme: dark; }
+  }
+  html, body { height: auto; }
+  .doc { max-width: 640px; margin: 0 auto; padding-top: calc(28px + env(safe-area-inset-top, 0px)); padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)); }
+  .doc header { display: grid; gap: 16px; padding-bottom: 24px; border-bottom: 1px solid var(--line); }
+  .doc h1 { font-size: clamp(34px, 10vw, 52px); }
+  .doc section { display: grid; gap: 10px; padding: 22px 0; border-bottom: 1px solid var(--line); }
+  .doc h2 { margin: 0; color: var(--soft); font-weight: 400; }
+  .doc p, .doc li { margin: 0; font-size: 16.5px; line-height: 1.5; }
+  .doc ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; }
+  .doc a { color: var(--ink); text-underline-offset: 3px; }
+  .doc .back { justify-self: start; white-space: nowrap; text-decoration: none; }
+</style>
+</head>
+<body>
+<main class="doc gutter">
+  <header>
+    <a class="mono back" href="./">← Remagery</a>
+    <h1 class="title">Privacy.</h1>
+    <p>Remagery reads design books aloud and shows each image when the text talks about it. This page says what it does with your data, in plain words.</p>
+    <p class="mono" style="color:var(--soft)">Updated 6 November 2026</p>
+  </header>
+
+  <section>
+    <h2 class="mono">Who runs it</h2>
+    <p>Remagery is a personal project by Raphael Silva, a designer in Barcelona. It's free, with no ads. Questions or requests: <a href="mailto:sayhellotosilva@gmail.com">sayhellotosilva@gmail.com</a>.</p>
+  </section>
+
+  <section>
+    <h2 class="mono">What Remagery can see in your Google account</h2>
+    <ul>
+      <li><b>Your email address</b>, to know which library is yours.</li>
+      <li><b>Only the Google Drive files it makes</b> and the PDFs you choose in Google's file picker. It can't see, change or delete anything else in your Drive.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="mono">Where your books live</h2>
+    <ul>
+      <li><b>In your own Google Drive</b>, in a folder called Remagery: each book's text, images, cover and voice, plus a file with your progress and bookmarks.</li>
+      <li><b>On your device</b>, in the browser's storage, so books open quickly and play offline.</li>
+      <li>Your PDFs are turned into books on your device. They aren't sent to Remagery.</li>
+      <li>Remagery has no database of its own with your books or progress.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2 class="mono">How the voice is made</h2>
+    <p>The first time a chapter is played, its text goes through Remagery's voice server (run on Cloudflare) to Google Text-to-Speech, which makes the audio. The audio comes back to your device and is saved in your Drive. The text and audio aren't kept on the server.</p>
+    <p>So everyone gets a fair share of the free voice allowance, the server keeps:</p>
+    <ul>
+      <li>your email address,</li>
+      <li>a random code for each book you've started (not its title or text),</li>
+      <li>how many characters everyone has used this month.</li>
+    </ul>
+    <p>Monthly counts are removed after about 70 days.</p>
+  </section>
+
+  <section>
+    <h2 class="mono">What Remagery doesn't do</h2>
+    <ul>
+      <li>No ads, no tracking, no analytics.</li>
+      <li>Your data isn't sold or shared with anyone, and isn't used to train AI.</li>
+      <li>Nobody reads your books or your Drive.</li>
+    </ul>
+    <p>Remagery's use of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements.</p>
+  </section>
+
+  <section>
+    <h2 class="mono">Removing your data</h2>
+    <ul>
+      <li><b>One book:</b> touch and hold its cover in Remagery and remove it. Its Drive folder goes to the bin.</li>
+      <li><b>Everything in Drive:</b> delete the Remagery folder in Google Drive.</li>
+      <li><b>On your device:</b> remove Remagery from your Home Screen, or clear the website's data in your browser.</li>
+      <li><b>Remagery's access:</b> remove it at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</li>
+      <li><b>The voice server's records:</b> email <a href="mailto:sayhellotosilva@gmail.com">sayhellotosilva@gmail.com</a> and they'll be deleted.</li>
+    </ul>
+  </section>
+
+  <section style="border-bottom:0">
+    <h2 class="mono">Changes</h2>
+    <p>If this page changes, the date at the top changes too.</p>
+  </section>
+</main>
+</body>
+</html>

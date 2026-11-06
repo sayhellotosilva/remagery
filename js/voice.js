@@ -5,6 +5,13 @@
 import { db } from "./db.js";
 import { VOICE_SERVER, PACE } from "./config.js";
 import { fetchVoice, scheduleSync } from "./sync.js";
+import { token, account } from "./google.js";
+
+// The voice server's pass: proves who you are for 30 days, so the voice keeps being made
+// after Google's one-hour sign-in runs out.
+const PASS_KEY = "remagery.voicePass";
+function getPass() { try { const p = JSON.parse(localStorage.getItem(PASS_KEY) || "null"); return p && p.email === account() ? p.pass : ""; } catch (e) { return ""; } }
+function keepPass(j) { if (j && j.pass && j.email) try { localStorage.setItem(PASS_KEY, JSON.stringify({ email: j.email, pass: j.pass })); } catch (e) {} }
 
 export const hasVoiceServer = () => !!VOICE_SERVER;
 
@@ -43,19 +50,24 @@ export function chapterCharacters(chapter) {
   return chunks(chapter).reduce((n, c) => n + c.length, 0);
 }
 
-async function speak(ssml, voice) {
+async function speak(ssml, voice, bookId = "") {
+  const t = token(), pass = getPass();
+  if (!t && !pass) throw new VoiceError("Sign in with Google again to make the voice.", "auth");
   let r;
   try {
     r = await fetch(VOICE_SERVER.replace(/\/$/, "") + "/speak", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ssml, voice, rate: PACE.rate }),
+      body: JSON.stringify({ ssml, voice, rate: PACE.rate, bookId, token: t || "", pass }),
     });
   } catch (e) {
     throw new VoiceError("No internet connection. The voice is made online the first time you play a chapter.", "offline");
   }
   const j = await r.json().catch(() => ({}));
-  if (r.status === 429) throw new VoiceError(j.error || "This month's free voice allowance is used up. It starts again on the 1st.", "limit");
+  if (r.status === 401) { try { localStorage.removeItem(PASS_KEY); } catch (e) {} }
+  if (r.status === 401) throw new VoiceError(j.error || "Sign in with Google again to make the voice.", "auth");
+  if (r.status === 429) throw new VoiceError(j.error || "This month's free voice allowance is used up. It starts again on the 1st.", j.kind || "limit");
   if (!r.ok) throw new VoiceError(j.error || "The voice server didn't answer. Try again in a moment.", "server");
+  keepPass(j);
   return j;
 }
 
@@ -108,7 +120,7 @@ export async function chapterAudio(bookId, ci, chapter, voice, onProgress) {
   async function worker() {
     while (next < pieces.length) {
       const i = next++;
-      results[i] = await speak(pieces[i], voice);
+      results[i] = await speak(pieces[i], voice, bookId);
       done++;
       onProgress && onProgress(done, pieces.length);
     }
@@ -140,12 +152,16 @@ export async function hasChapterAudio(bookId, ci, voice) {
   return !!(await db.get("audio", `${bookId}/${ci}/${voice}`));
 }
 
-/// This month's use of the free allowance, from the voice server.
+/// This month's use: everyone's characters, and your own new books (when signed in).
 export async function usage() {
   if (!VOICE_SERVER) return null;
   try {
-    const r = await fetch(VOICE_SERVER.replace(/\/$/, "") + "/usage");
-    return r.ok ? await r.json() : null;
+    const r = await fetch(VOICE_SERVER.replace(/\/$/, "") + "/usage", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token() || "", pass: getPass() }),
+    });
+    const j = r.ok ? await r.json() : null;
+    keepPass(j);
+    return j;
   } catch (e) { return null; }
 }
 

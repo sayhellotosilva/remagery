@@ -149,6 +149,7 @@ function welcomeView() {
     <div class="gate-bottom">
       <button class="add" data-act="signin"><span class="g-dot">G</span>Sign in with Google</button>
       <p class="help" style="text-align:center;margin-top:12px">Google will ask to let Remagery use its own folder in your Drive. Tick the box and tap Continue.</p>
+      <p class="help" style="text-align:center;margin-top:10px"><a class="mono" style="color:inherit" href="privacy.html">Privacy</a></p>
     </div>
   </main>`);
 }
@@ -309,6 +310,12 @@ async function startMaking(file) {
   const id = uid();
   const isPDF = /\.pdf$/i.test(file.name) || /pdf/.test(file.type || "");
   if (!isPDF) { alertDialog("That isn't a PDF", "Remagery makes books from PDF files. Choose the book's PDF."); return; }
+  // Each person can start 5 new books a month: say so before doing the work
+  const u = await usage();
+  if (u && u.bookLimit && u.books >= u.bookLimit) {
+    alertDialog("No new books this month", `You've started ${u.bookLimit} new books this month. You can add more from the 1st. Books you've already started keep playing.`);
+    return;
+  }
   const fromDrive = !!file.driveId;
   const job = { id, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "), status: "Reading the PDF", progress: 0, cancelled: false };
   making.unshift(job);
@@ -721,6 +728,7 @@ function settingsSheet() {
         : `<p class="help">Sign in to keep your books and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}` : ""}
       <div class="label">On your Home Screen</div>
       <p class="help">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen and keeps your books safe.</p>
+      <p class="help" style="margin-top:18px"><a class="mono" style="color:inherit" href="privacy.html">Privacy</a></p>
     </div>`);
     const sampleBox = wrap.querySelector("#sample");
     sampleBox.style.fontSize = prefs.textSize + "px";
@@ -753,7 +761,8 @@ function settingsSheet() {
         const box = wrap.querySelector("#use");
         if (!u || !box) return;
         const pct = Math.min(100, u.used / u.limit * 100);
-        box.innerHTML = `<p class="help">Free voice this month: ${(u.used / 1e6).toFixed(2)} of ${(u.limit / 1e6).toFixed(1)} million characters. A book is roughly half a million.</p><div class="meter"><i style="width:${pct}%"></i></div>`;
+        const mine = u.books != null ? `<p class="help">Your new books this month: ${u.books} of ${u.bookLimit}. More chapters of a book you've started are free.</p><div class="meter"><i style="width:${Math.min(100, u.books / u.bookLimit * 100)}%"></i></div>` : "";
+        box.innerHTML = `${mine}<p class="help">Free voice this month, everyone together: ${(u.used / 1e6).toFixed(2)} of ${(u.limit / 1e6).toFixed(1)} million characters.</p><div class="meter"><i style="width:${pct}%"></i></div>`;
       });
     }
     return wrap;

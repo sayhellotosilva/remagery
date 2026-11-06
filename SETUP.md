@@ -83,4 +83,6 @@ Optional: search for **Budgets & alerts** and make a budget of €1, so Google e
 - **On a new phone or laptop:** sign in and your books appear with "In Drive" on them. Each one downloads when you open it.
 - **Removing a book** moves its Drive folder to the bin. Your original PDF isn't touched.
 - **Making a book** happens on your phone. Keep Remagery on screen while it works (about a minute).
-- **Friends** sign in with their own Google account and get their own library. They share your voice allowance: about 7 books a month for everyone together.
+- **Friends** sign in with their own Google account and get their own library, in their own Drive.
+- **Voice limits:** each person can start 5 new books a month (more chapters of a book already started are free). Everyone together shares Google's free allowance: about 7 books a month. Change the 5 with a Text variable `BOOKS_PER_MONTH` on the voice server.
+- **Privacy page:** https://remagery.pages.dev/privacy.html (needed to publish the Google sign-in).
