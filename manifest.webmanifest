@@ -1,0 +1,14 @@
+{
+  "name": "Remagery",
+  "short_name": "Remagery",
+  "description": "Design books read aloud, with each image shown when the text talks about it.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#D8D8D5",
+  "theme_color": "#D8D8D5",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
