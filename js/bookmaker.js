@@ -63,7 +63,11 @@ export async function makeBookFromPDF(file, id, progress, job) {
       progress("Recognising scanned pages", 0.55 * i / n);
       text = await recogniseText(page).catch(() => "");
     }
-    pages.push({ page, items, lines, raw, text, scanned, pics, box: { w: vx1 - vx0, h: vy1 - vy0 } });
+    pages.push({ items, lines, raw, text, scanned, pics, box: { w: vx1 - vx0, h: vy1 - vy0 } });
+    // Let go of the page's decoded pictures and fonts straight away: on iPhone, keeping every page
+    // in memory makes Safari close the page on big, picture-heavy books.
+    page.cleanup();
+    if (i % 10 === 9) { try { await doc.cleanup(); } catch (e) {} await pause(); }
   }
 
   // Keep only text in the book's main size: drops footnotes, side notes, footnote numbers,
@@ -129,13 +133,16 @@ export async function makeBookFromPDF(file, id, progress, job) {
       if (!pics.length) continue;
       let onPage = flat.map((s, i) => (s.page === pi ? i : -1)).filter(i => i >= 0);
       if (!onPage.length) { const f = flat.findIndex(s => s.page >= pi); onPage = [f >= 0 ? f : flat.length - 1]; }
+      await pause();
       for (let m = 0; m < pics.length; m++) {
         const idx = onPage[Math.min(onPage.length - 1, Math.floor(m * onPage.length / pics.length))];
         const start = Math.max(timings.sentences[idx].start, lastStart + 4);
         if (start >= timings.duration) continue;
         const name = `images/p${pi + 1}-${m + 1}.jpg`;
         check();
-        const blob = await saveCrop(pages[pi].page, pics[m]).catch(() => null);
+        const pg = await doc.getPage(pi + 1);
+        const blob = await saveCrop(pg, pics[m]).catch(() => null);
+        pg.cleanup();
         if (!blob) continue;
         await db.put("files", `${id}/${name}`, blob);
         const nearby = [];
@@ -152,6 +159,7 @@ export async function makeBookFromPDF(file, id, progress, job) {
     chapters.push({ number: ci, title: d.title, source_pages: pagesList, paragraphs: pkgParas, images });
   }
   progress("Finishing", 0.99);
+  try { await doc.destroy(); } catch (e) {}
   return { format: "remagery-web", title, authors, cover, chapters };
 }
 
@@ -218,6 +226,7 @@ async function recogniseText(page) {
   c.width = vp.width; c.height = vp.height;
   await page.render({ canvasContext: c.getContext("2d"), viewport: vp }).promise;
   const { data } = await tesseractWorker.recognize(c);
+  c.width = c.height = 0;
   return (data.text || "").trim();
 }
 
@@ -571,9 +580,16 @@ function caption(items, r, body) {
   return text;
 }
 
+/// Turns a canvas into a JPEG, then empties the canvas so iPhone frees its memory at once.
+function toJPEG(c, quality) {
+  return new Promise(res => c.toBlob(b => { c.width = c.height = 0; res(b); }, "image/jpeg", quality));
+}
+/// A short breath between pages, so the phone can tidy up memory.
+const pause = () => new Promise(r => setTimeout(r, 0));
+
 /// Renders just the picture area of the page as a sharp JPEG.
 async function saveCrop(page, r) {
-  const scale = Math.min(6, 1600 / Math.max(r.w, r.h));
+  const scale = Math.min(4, 1400 / Math.max(r.w, r.h));
   const base = page.getViewport({ scale });
   const [ax, ay, bx, by] = base.convertToViewportRectangle([r.x, r.y, r.x + r.w, r.y + r.h]);
   const left = Math.min(ax, bx), top = Math.min(ay, by);
@@ -585,7 +601,7 @@ async function saveCrop(page, r) {
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, w, h);
   await page.render({ canvasContext: ctx, viewport: vp }).promise;
-  return new Promise(res => c.toBlob(res, "image/jpeg", 0.85));
+  return toJPEG(c, 0.85);
 }
 
 async function renderPage(page, width) {
@@ -596,7 +612,7 @@ async function renderPage(page, width) {
   const ctx = c.getContext("2d");
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
   await page.render({ canvasContext: ctx, viewport: vp }).promise;
-  return new Promise(res => c.toBlob(res, "image/jpeg", 0.82));
+  return toJPEG(c, 0.82);
 }
 
 // ---------- Short descriptions of pictures, taken from the book's text ----------
