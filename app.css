@@ -42,8 +42,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ink); 
 .library.playing { padding-bottom: calc(220px + env(safe-area-inset-bottom, 0px)); }
 .lib-top { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; }
 .lib-top h1 { font-size: 26px; font-weight: 700; letter-spacing: -.03em; margin: 0; }
-.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 26px 22px; padding-top: 18px; max-width: 760px; }
-@media (min-width: 700px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+.grid > * { min-width: 0; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 22px; padding-top: 18px; max-width: 760px; }
+@media (min-width: 700px) { .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 .cover { display: block; width: 100%; text-align: left; -webkit-touch-callout: none; user-select: none; }
 .cover .frame { aspect-ratio: .77; border-radius: 9px; overflow: hidden; position: relative; background: var(--ink);
   box-shadow: 0 0 0 3px rgba(255,255,255,.75), 0 8px 22px rgba(0,0,0,.18); }
@@ -78,11 +79,11 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ink); 
 .p-top .row { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; height: 56px; pointer-events: auto; padding-left: max(6px, env(safe-area-inset-left, 0px)); padding-right: max(22px, env(safe-area-inset-right, 0px)); }
 .back { width: 56px; height: 56px; display: grid; place-items: center; }
 .p-top .chapters { justify-self: end; }
-.p-scroll { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-top: calc(70px + env(safe-area-inset-top, 0px)); padding-bottom: 300px; }
+.p-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; -webkit-overflow-scrolling: touch; padding-top: calc(70px + env(safe-area-inset-top, 0px)); padding-bottom: 300px; }
 .p-inner { max-width: 640px; }
 .ch-label { display: block; margin-bottom: 6px; }
 .ch-title { font-size: clamp(30px, 9.4vw, 44px); }
-.figure { margin-top: 20px; }
+.figure { margin-top: 20px; min-width: 0; }
 .figure img { width: 100%; display: block; border-radius: 3px; cursor: zoom-in; max-height: 58vh; object-fit: contain; object-position: left top; }
 .figure .cap { margin-top: 10px; display: block; }
 .figure .desc { font-size: calc(var(--text) - 3px); line-height: 1.45; margin: 14px 0 0; text-indent: 3em; max-width: 62ch; }
@@ -91,9 +92,9 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ink); 
 .coverwait { margin-top: 20px; display: grid; gap: 16px; }
 .coverwait img { width: 55%; border-radius: 3px; display: block; }
 .read-head { display: flex; gap: 40px; align-items: center; height: 40px; margin-top: 18px; }
-.read-text { display: grid; gap: calc(var(--text) * .55); margin-top: 10px; padding-bottom: 120px; }
-.para { display: grid; grid-template-columns: 1fr 30px; gap: 4px; align-items: start; }
-.para p { margin: 0; font-size: calc(var(--text) - 1px); line-height: 1.45; text-indent: 3em; max-width: 62ch; }
+.read-text { display: grid; grid-template-columns: minmax(0, 1fr); gap: calc(var(--text) * .55); margin-top: 10px; padding-bottom: 120px; }
+.para { display: grid; grid-template-columns: minmax(0, 1fr) 30px; gap: 4px; align-items: start; }
+.para p { margin: 0; min-width: 0; overflow-wrap: anywhere; font-size: calc(var(--text) - 1px); line-height: 1.45; text-indent: 3em; max-width: 62ch; }
 .para.past p { color: var(--soft); }
 .para s { text-decoration: none; cursor: pointer; border-radius: 1px; }
 .para s.now { background: var(--mark); color: var(--mark-ink); box-shadow: 0 0 0 2px var(--mark); }

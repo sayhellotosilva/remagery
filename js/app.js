@@ -117,6 +117,7 @@ async function renderLibrary() {
   }
   for (const job of making) grid.appendChild(makingCard(job));
   for (const b of books) {
+    if (making.some(j => j.id === b.id)) continue; // being downloaded: its card shows progress instead
     const remote = b.local === false;
     const card = h(`<button class="cover ${remote ? "remote" : ""}" style="transform:rotate(${coverTilt(b.id)}deg)" aria-label="${esc(b.title)}. ${esc(stateText(b))}${remote ? ". In Google Drive, downloads when you open it" : ""}">
       <div class="frame"><div class="titlecard">${esc(b.title)}</div>${remote ? `<span class="drive-tag mono">In Drive</span>` : ""}
@@ -303,7 +304,8 @@ let follow = true;
 
 async function openBook(b) {
   player.unlock();
-  if (b.local === false) {
+  if (b.local === false || !(await db.get("packages", b.id))) {
+    b.local = false;
     // The book is in Google Drive but not on this phone yet: download it first
     if (!G.token()) { G.signIn({ intent: "open:" + b.id }); return; }
     if (making.some(j => j.id === b.id)) return;
