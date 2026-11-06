@@ -3,9 +3,8 @@ import { db, keepStorage } from "./db.js";
 import { prefs, savePrefs } from "./prefs.js";
 import { player } from "./player.js";
 import { makeBookFromPDF, Cancelled } from "./bookmaker.js";
-import { importPackage } from "./package.js";
 import { VOICES, DEFAULT_VOICE } from "./config.js";
-import { hasVoiceServer, usage, sample } from "./voice.js";
+import { hasVoiceServer, usage, sample, chapterAudio } from "./voice.js";
 import * as G from "./google.js";
 import { sync, onSync, syncStatus, syncError, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
 
@@ -111,8 +110,8 @@ async function renderLibrary() {
   if (!books.length && !making.length) {
     grid.replaceWith(h(`<div class="empty"><hr class="hair">
       ${G.googleReady() && !G.account() ? `<div class="step"><span class="mono">01</span><span>Sign in with Google. Your books and progress are kept in a Remagery folder in your Google Drive.</span></div>` : ""}
-      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "02" : "01"}</span><span>Tap Add book and choose a PDF from Google Drive or this phone, or a .zip made with the ChatGPT prompt.</span></div>
-      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "03" : "02"}</span><span>Remagery gets it ready in about a minute. Keep this page open while it works.</span></div>
+      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "02" : "01"}</span><span>Tap Add book and choose a book's PDF, from Google Drive or this phone.</span></div>
+      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "03" : "02"}</span><span>Remagery gets it ready, voice included, in a minute or two. Keep this page open while it works.</span></div>
       <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "04" : "03"}</span><span>Tap the book. Images appear as they're mentioned. Read shows the text.</span></div>
     </div>`));
   }
@@ -170,13 +169,13 @@ function refreshAccount() { const a = libraryEl && libraryEl.querySelector("#acc
 function addSheet() {
   if (!G.googleReady()) { picker.click(); return; }
   openSheet("Add a book", close => {
-    const wrap = h(`<div class="list">
-      <button data-src="drive"><span><span class="name">From Google Drive</span><span class="num" style="margin:4px 0 0">PDF or ChatGPT .zip, chosen in Google Drive</span></span><span></span></button>
-      <button data-src="phone"><span><span class="name">From this phone</span><span class="num" style="margin:4px 0 0">Files, iCloud, Downloads, or Google Drive via Browse</span></span><span></span></button>
+    const wrap = h(`<div class="options">
+      <button class="opt add-opt" data-src="drive"><span><span class="opt-title">From Google Drive</span><span class="opt-sub">Choose a PDF in your Drive</span></span></button>
+      <button class="opt add-opt" data-src="phone"><span><span class="opt-title">From this phone</span><span class="opt-sub">Files, iCloud, Downloads</span></span></button>
     </div>`);
     wrap.querySelector('[data-src="phone"]').onclick = () => { close(); picker.click(); };
     wrap.querySelector('[data-src="drive"]').onclick = () => { close(); addFromDrive(); };
-    const note = h(`<p class="help">${G.account() ? "Finished books are saved in the Remagery folder in your Google Drive." : "You'll sign in with Google first. Finished books are saved in a Remagery folder in your Google Drive."}</p>`);
+    const note = h(`<p class="help" style="margin-top:14px">${G.account() ? "Finished books are saved in the Remagery folder in your Google Drive." : "You'll sign in with Google first. Finished books are saved in a Remagery folder in your Google Drive."}</p>`);
     const box = document.createElement("div"); box.append(wrap, note);
     return box;
   });
@@ -237,9 +236,10 @@ picker.addEventListener("change", () => {
 async function startMaking(file) {
   keepStorage();
   const id = uid();
-  const isPDF = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+  const isPDF = /\.pdf$/i.test(file.name) || /pdf/.test(file.type || "");
+  if (!isPDF) { alertDialog("That isn't a PDF", "Remagery makes books from PDF files. Choose the book's PDF."); return; }
   const fromDrive = !!file.driveId;
-  const job = { id, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "), status: isPDF ? "Reading the PDF" : "Opening", progress: 0, cancelled: false };
+  const job = { id, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "), status: "Reading the PDF", progress: 0, cancelled: false };
   making.unshift(job);
   renderLibrary();
   let last = 0;
@@ -258,8 +258,8 @@ async function startMaking(file) {
       const blob = await G.download(file.driveId, p => progress("Downloading from Drive", p * 0.15));
       file = new File([blob], file.name, { type: blob.type || file.type });
     }
-    const inner = fromDrive ? (s, p) => progress(s, 0.15 + p * 0.75) : (s, p) => progress(s, p * 0.9);
-    const book = isPDF ? await makeBookFromPDF(file, id, inner, job) : await importPackage(file, id, inner);
+    const base = fromDrive ? 0.15 : 0;
+    const book = await makeBookFromPDF(file, id, (s, p) => progress(s, base + p * (0.6 - base)), job);
     if (job.cancelled) throw new Cancelled();
     await db.put("packages", id, book);
     const rec = {
@@ -267,10 +267,13 @@ async function startMaking(file) {
       chapters: book.chapters.map(c => ({ number: c.number ?? 0, title: c.title || "" })),
       added: Date.now(), lastOpened: null, progress: null, finished: false, bookmarks: [], percent: 0, updatedAt: Date.now(),
     };
+    // The first chapter's voice, so it plays straight away when you open the book
+    await prepareVoice(rec, book, 0, job, progress, 0.6, 0.95);
+    if (job.cancelled) throw new Cancelled();
     await db.put("books", id, rec);
     // Save it in the Remagery folder in Google Drive
     if (G.token()) {
-      try { await uploadBook(rec, p => progress("Saving to Google Drive", 0.9 + p * 0.09)); scheduleSync(500); }
+      try { await uploadBook(rec, p => progress("Saving to Google Drive", 0.95 + p * 0.04)); scheduleSync(500); }
       catch (e) { scheduleSync(5000); }
     }
   } catch (e) {
@@ -279,6 +282,19 @@ async function startMaking(file) {
   }
   making.splice(making.indexOf(job), 1);
   renderLibrary();
+}
+
+/// Makes one chapter's voice while the book card shows progress. If it fails (offline, limit),
+/// the book is still added and the voice is made when you press play.
+async function prepareVoice(rec, book, ci, job, progress, from, to) {
+  if (!hasVoiceServer() || !book.chapters[ci]) return;
+  try {
+    const audio = await chapterAudio(rec.id, ci, book.chapters[ci], prefs.voice || DEFAULT_VOICE, (d, n) => {
+      if (job.cancelled) return;
+      progress(`Preparing the voice · ${d} of ${n}`, from + (n ? d / n : 0) * (to - from));
+    });
+    if (rec.chapters[ci]) rec.chapters[ci].duration = audio.duration;
+  } catch (e) {}
 }
 
 // ---------- Player screen ----------
@@ -297,7 +313,7 @@ async function openBook(b) {
     try {
       let last = 0;
       b = await downloadBook(b, p => {
-        job.progress = p * 0.99;
+        job.progress = p * 0.5;
         if (Date.now() - last > 250 && job.card) { last = Date.now(); job.card.replaceWith(makingCard(job)); }
       });
     } catch (e) {
@@ -305,6 +321,16 @@ async function openBook(b) {
       renderLibrary();
       alertDialog("Couldn't download the book", e.status === 401 ? "Sign in again and try once more." : "Check your internet connection and try again.");
       return;
+    }
+    const pkg = await db.get("packages", b.id);
+    const ci = (b.progress && b.progress.ch) || 0;
+    if (pkg) {
+      let last = 0;
+      await prepareVoice(b, pkg, ci, job, (s, p) => {
+        job.status = s; job.progress = p;
+        if (Date.now() - last > 250 && job.card) { last = Date.now(); job.card.replaceWith(makingCard(job)); }
+      }, 0.5, 0.99);
+      await db.put("books", b.id, b);
     }
     making.splice(making.indexOf(job), 1);
     await renderLibrary();
@@ -521,40 +547,59 @@ player.on(kind => {
   }
 });
 
-// ---------- Sheets ----------
-function openSheet(title, body, after) {
-  const back = h(`<div class="sheet-back"><div class="sheet gutter" role="dialog" aria-label="${esc(title)}">
-    <div class="sheet-head"><h2 class="title">${esc(title)}</h2><button class="close" data-x aria-label="Close">${I.x}</button></div>
+// ---------- Sheets (as in the iPhone app: sheet colour, close circle, outlined rows) ----------
+function openSheet(title, body, { head = true } = {}) {
+  const back = h(`<div class="sheet-back"><div class="sheet" role="dialog" aria-label="${esc(title)}">
+    <div class="grabber"></div>
+    ${head ? `<div class="sheet-head"><h2 class="title">${esc(title)}</h2><button class="close" data-x aria-label="Close">${I.x}</button></div>` : ""}
     <div class="sheet-body"></div></div></div>`);
   const close = () => back.remove();
   back.addEventListener("click", e => { if (e.target === back || e.target.closest("[data-x]")) close(); });
   document.body.appendChild(back);
-  const fill = () => { const b = back.querySelector(".sheet-body"); b.innerHTML = ""; b.appendChild(body(close, fill)); after && after(back); };
+  const fill = () => { const b = back.querySelector(".sheet-body"); b.innerHTML = ""; b.appendChild(body(close, fill)); };
   fill();
   return close;
 }
 
+/// iOS-style segmented control.
+const segHTML = (items, current, attr) => `<div class="seg" role="group">${items.map(([v, label]) =>
+  `<button ${attr}="${v}" aria-pressed="${String(v) === String(current)}">${esc(label)}</button>`).join("")}</div>`;
+
+/// Chapter length: the real one once its voice is made, otherwise an estimate from the text.
+function chapterSeconds(i) {
+  const known = player.record && player.record.chapters[i] && player.record.chapters[i].duration;
+  if (known) return known;
+  const c = player.book.chapters[i];
+  let n = 0;
+  for (const p of c.paragraphs || []) for (const s of p.sentences || []) n += s.text.length + 1;
+  return n / 13 / player.speed;
+}
+
 function chaptersSheet(tab = 0) {
   openSheet("Chapters", (close, refill) => {
-    const wrap = h(`<div><div class="seg"><button aria-pressed="${tab === 0}">Chapters</button><button aria-pressed="${tab === 1}">Bookmarks</button></div><div class="list"></div></div>`);
-    const [b0, b1] = wrap.querySelectorAll(".seg button");
-    b0.onclick = () => { tab = 0; refill(); };
-    b1.onclick = () => { tab = 1; refill(); };
+    const wrap = h(`<div><div class="sheet-row">${segHTML([[0, "Chapters"], [1, "Bookmarks"]], tab, "data-tab")}<button class="close" data-x aria-label="Close">${I.x}</button></div><div class="list chapters"></div></div>`);
+    wrap.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => { tab = +b.dataset.tab; refill(); });
     const list = wrap.querySelector(".list");
     if (!player.book) return wrap;
     if (tab === 0) {
       player.book.chapters.forEach((c, i) => {
         const on = i === player.ch;
-        const row = h(`<button class="${on ? "on" : ""}"><span><span class="num">${esc(chapterLabel({ number: c.number ?? i, title: c.title }))}</span><span class="name">${esc(c.title)}</span></span><span>${on ? I.tick : ""}</span></button>`);
+        const num = c.number ?? i;
+        const isNotes = (c.title || "").toLowerCase().startsWith("notes");
+        const row = h(`<button class="ch-row ${on ? "on" : ""}">
+          <span class="ch-num">${num === 0 || isNotes ? "—" : String(num).padStart(2, "0")}</span>
+          <span class="ch-name">${esc(c.title)}</span>
+          <span class="ch-time">${fmt(chapterSeconds(i))}</span></button>`);
         row.onclick = () => { player.unlock(); close(); player.load(i, 0, true); };
         list.appendChild(row);
       });
+      setTimeout(() => { const on = list.querySelector(".on"); if (on) on.scrollIntoView({ block: "center" }); }, 0);
     } else {
       const bms = [...(player.record.bookmarks || [])].sort((a, b) => a.ch - b.ch || a.s - b.s);
-      if (!bms.length) list.appendChild(h(`<p class="help" style="margin:0">No bookmarks yet. In read-along, tap the bookmark next to the highlighted sentence to save it.</p>`));
+      if (!bms.length) list.appendChild(h(`<p class="help">No bookmarks yet.</p>`));
       for (const b of bms) {
         const c = player.book.chapters[b.ch];
-        const row = h(`<div><button style="text-align:left"><span class="num">${esc(c ? chapterLabel(c) : "")}</span><span class="name">${esc(b.text)}</span></button><button class="close" aria-label="Remove bookmark">${I.x}</button></div>`);
+        const row = h(`<div class="bm-row"><button class="bm-go"><span class="bm-label">${esc(c ? chapterLabel(c) : "")}</span><span class="bm-text">${esc(b.text)}</span></button><button class="close" aria-label="Remove bookmark">${I.x}</button></div>`);
         const [go, rm] = row.querySelectorAll("button");
         go.onclick = () => { player.unlock(); close(); player.goToBookmark(b); };
         rm.onclick = () => { player.removeBookmark(b.sid); refill(); };
@@ -562,16 +607,16 @@ function chaptersSheet(tab = 0) {
       }
     }
     return wrap;
-  });
+  }, { head: false });
 }
 
 function sleepSheet() {
-  openSheet("Sleep", close => {
-    const opts = [["Off", null], ["15 minutes", { minutes: 15 }], ["30 minutes", { minutes: 30 }], ["45 minutes", { minutes: 45 }], ["60 minutes", { minutes: 60 }], ["End of chapter", { endOfChapter: true }]];
-    const wrap = h(`<div class="list"></div>`);
+  openSheet("Sleep timer", close => {
+    const opts = [["Off", null], ["15 minutes", { minutes: 15 }], ["30 minutes", { minutes: 30 }], ["45 minutes", { minutes: 45 }], ["1 hour", { minutes: 60 }], ["End of this chapter", { endOfChapter: true }]];
+    const wrap = h(`<div class="options"></div>`);
     for (const [label, mode] of opts) {
       const on = JSON.stringify(player.sleep) === JSON.stringify(mode);
-      const row = h(`<button class="${on ? "on" : ""}"><span class="name">${label}</span><span>${on ? I.tick : ""}</span></button>`);
+      const row = h(`<button class="opt ${on ? "on" : ""}"><span>${label}</span><span>${on ? I.tick : ""}</span></button>`);
       row.onclick = () => { player.setSleep(mode); close(); };
       wrap.appendChild(row);
     }
@@ -584,30 +629,31 @@ function settingsSheet() {
   openSheet("Settings", (close, refill) => {
     const voiceOn = hasVoiceServer();
     const cur = prefs.voice || DEFAULT_VOICE;
+    const speeds = [0.8, 1, 1.15, 1.25, 1.5, 1.75, 2];
     const wrap = h(`<div>
-      <div class="section"><span class="mono soft">Appearance</span>
-        <div class="seg">${["system", "light", "dark"].map(m => `<button data-ap="${m}" aria-pressed="${prefs.appearance === m}">${m === "system" ? "Auto" : m}</button>`).join("")}</div></div>
-      <div class="section"><span class="mono soft">Text size</span>
-        <div class="sizes"><span style="font-size:15px">A</span><input type="range" id="tsize" min="16" max="30" step="1" value="${prefs.textSize}" aria-label="Text size"><span style="font-size:26px">A</span></div></div>
-      <div class="section"><span class="mono soft">Speed</span>
-        <div class="seg">${[0.8, 1, 1.15, 1.25, 1.5, 1.75, 2].map(s => `<button data-sp="${s}" aria-pressed="${player.speed === s}">${s}</button>`).join("")}</div></div>
-      <div class="section"><span class="mono soft">Voice</span>
-        ${voiceOn ? `<div class="list" id="voices"></div><p class="help">Tap a voice to choose it and hear it. Chapters you've played are kept in the voice they were made with.</p>
-          <div id="use"></div>`
-        : `<p class="help" style="margin-top:0">The Google voice isn't set up in this copy of Remagery, so the browser's own voice reads. It stops when the phone locks. See SETUP.md, step 2.</p>`}
-      </div>
-      <div class="section"><span class="mono soft">Images</span>
-        <div class="list"><div><span class="name">Sound when an image appears</span><button class="toggle" id="chime" aria-pressed="${prefs.chime !== false}" aria-label="Sound when an image appears"></button></div></div></div>
-      ${G.googleReady() ? `<div class="section"><span class="mono soft">Google account</span>
-        ${G.account() ? `<p class="help" style="margin-top:0">Signed in as ${esc(G.account())}. Your books, progress and bookmarks are kept in the Remagery folder in your Google Drive. The voice stays on this phone.</p>
+      <div class="label">Voice</div>
+      ${voiceOn ? `<div class="options" id="voices"></div><div id="use"></div>`
+        : `<p class="help">The Google voice isn't connected, so the browser's own voice reads. It stops when the phone locks.</p>`}
+      <div class="label">Images</div>
+      <div class="toggle-row"><span>Sound when an image appears</span><button class="toggle" id="chime" aria-pressed="${prefs.chime !== false}" aria-label="Sound when an image appears"></button></div>
+      <div class="label">Appearance</div>
+      ${segHTML([["system", "Auto"], ["light", "Light"], ["dark", "Dark"]], prefs.appearance, "data-ap")}
+      <div class="label">Text size</div>
+      <div class="sizes"><span class="serif" style="font-size:15px">A</span><input type="range" id="tsize" min="16" max="32" step="1" value="${prefs.textSize}" aria-label="Text size"><span class="serif" style="font-size:26px">A</span></div>
+      <div class="sample serif" id="sample">Design can help people <mark>imagine that things could be different.</mark></div>
+      <div class="label">Speed</div>
+      <div class="speed-grid">${speeds.map(s => `<button class="opt ${player.speed === s ? "on" : ""}" data-sp="${s}">${s}x</button>`).join("")}</div>
+      ${G.googleReady() ? `<div class="label">Google account</div>
+        ${G.account() ? `<p class="help">Signed in as ${esc(G.account())}. Your books, progress and bookmarks are kept in the Remagery folder in your Google Drive. The voice stays on this phone.</p>
           <div class="btn-row"><a class="tag line" id="driveLink" href="https://drive.google.com" target="_blank" rel="noopener">Open Remagery folder</a><button class="tag line" id="syncNow">Sync now</button><button class="tag line" id="signOut">Sign out</button></div>`
-        : `<p class="help" style="margin-top:0">Sign in to keep your books and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}
-      </div>` : ""}
-      <div class="section"><span class="mono soft">On your Home Screen</span>
-        <p class="help" style="margin-top:0">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen, and iOS keeps your books safe.</p></div>
+        : `<p class="help">Sign in to keep your books and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}` : ""}
+      <div class="label">On your Home Screen</div>
+      <p class="help">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen and keeps your books safe.</p>
     </div>`);
+    const sampleBox = wrap.querySelector("#sample");
+    sampleBox.style.fontSize = prefs.textSize + "px";
     wrap.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => { prefs.appearance = b.dataset.ap; savePrefs(); applyTheme(); player.artCache && player.artCache.clear(); refill(); });
-    wrap.querySelector("#tsize").oninput = e => { prefs.textSize = +e.target.value; savePrefs(); applyTheme(); };
+    wrap.querySelector("#tsize").oninput = e => { prefs.textSize = +e.target.value; savePrefs(); applyTheme(); sampleBox.style.fontSize = prefs.textSize + "px"; };
     wrap.querySelectorAll("[data-sp]").forEach(b => b.onclick = () => { player.speed = +b.dataset.sp; refill(); });
     const so = wrap.querySelector("#signOut");
     if (so) so.onclick = () => confirmDialog("Sign out?", "Your books stay in your Google Drive and on this phone.", "Sign out", async () => { await G.signOut(); close(); renderLibrary(); });
@@ -620,7 +666,7 @@ function settingsSheet() {
       const list = wrap.querySelector("#voices");
       for (const v of VOICES) {
         const on = v.id === cur;
-        const row = h(`<button class="${on ? "on" : ""}"><span class="name">${esc(v.label)}</span><span>${on ? I.tick : ""}</span></button>`);
+        const row = h(`<button class="opt ${on ? "on" : ""}"><span>${esc(v.label)}</span><span>${on ? I.tick : ""}</span></button>`);
         row.onclick = async () => {
           const changed = prefs.voice !== v.id;
           prefs.voice = v.id; savePrefs(); refill();
@@ -725,6 +771,8 @@ onSync(kind => {
 });
 
 // ---------- Start ----------
+// Keep a copy of the app on the phone so it opens without internet
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 applyTheme();
 renderLibrary();
 startGoogle();

@@ -127,6 +127,7 @@ class Player {
       this.preparing = null;
       lines.forEach((l, k) => { l.start = rec.starts[k]; l.end = k + 1 < lines.length ? rec.starts[k + 1] : rec.duration; });
       this.duration = rec.duration;
+      if (this.record.chapters[i] && !this.record.chapters[i].duration) { this.record.chapters[i].duration = rec.duration; db.put("books", this.record.id, this.record).catch(() => {}); }
       this.shots = this.buildShots(c, lines);
       const a = this.audio;
       if (this.chapterUrl) URL.revokeObjectURL(this.chapterUrl);
@@ -160,11 +161,19 @@ class Player {
   }
 
   /// Makes the next chapter's voice in the background, so it plays straight on (also when locked).
-  prepareNext() {
-    const n = this.ch + 1;
-    if (!this.book || n >= this.book.chapters.length) return;
-    const id = this.record.id;
-    chapterAudio(id, n, this.book.chapters[n], this.voice).catch(() => {});
+  /// The next two chapters, one after the other, so playing goes straight on (also when locked).
+  async prepareNext() {
+    if (this.preparingAhead || !this.book) return;
+    this.preparingAhead = true;
+    const rec = this.record, book = this.book;
+    try {
+      for (const n of [this.ch + 1, this.ch + 2]) {
+        if (n >= book.chapters.length || this.record !== rec) break;
+        const a = await chapterAudio(rec.id, n, book.chapters[n], this.voice);
+        if (rec.chapters[n] && !rec.chapters[n].duration) { rec.chapters[n].duration = a.duration; db.put("books", rec.id, rec).catch(() => {}); }
+      }
+    } catch (e) {}
+    this.preparingAhead = false;
   }
 
   /// Each picture shows from two paragraphs before it's mentioned until two paragraphs after.

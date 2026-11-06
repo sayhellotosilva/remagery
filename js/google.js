@@ -188,7 +188,7 @@ export async function pickFromDrive() {
   await loadPicker();
   const P = window.google.picker;
   return await new Promise(res => {
-    const view = new P.DocsView(P.ViewId.DOCS).setMimeTypes("application/pdf,application/zip,application/x-zip-compressed").setIncludeFolders(true).setSelectFolderEnabled(false);
+    const view = new P.DocsView(P.ViewId.DOCS).setMimeTypes("application/pdf").setIncludeFolders(true).setSelectFolderEnabled(false);
     const picker = new P.PickerBuilder()
       .addView(view)
       .enableFeature(P.Feature.MULTISELECT_ENABLED)
