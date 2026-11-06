@@ -171,8 +171,8 @@ function addSheet() {
   if (!G.googleReady()) { picker.click(); return; }
   openSheet("Add a book", close => {
     const wrap = h(`<div class="list">
-      <button data-src="drive"><span><span class="name">From Google Drive</span><span class="num" style="margin:4px 0 0">PDF or ChatGPT .zip</span></span><span></span></button>
-      <button data-src="phone"><span><span class="name">From this phone</span><span class="num" style="margin:4px 0 0">Files, iCloud Drive, Downloads</span></span><span></span></button>
+      <button data-src="drive"><span><span class="name">From Google Drive</span><span class="num" style="margin:4px 0 0">PDF or ChatGPT .zip, chosen in Google Drive</span></span><span></span></button>
+      <button data-src="phone"><span><span class="name">From this phone</span><span class="num" style="margin:4px 0 0">Files, iCloud, Downloads, or Google Drive via Browse</span></span><span></span></button>
     </div>`);
     wrap.querySelector('[data-src="phone"]').onclick = () => { close(); picker.click(); };
     wrap.querySelector('[data-src="drive"]').onclick = () => { close(); addFromDrive(); };
@@ -184,6 +184,7 @@ function addSheet() {
 
 async function addFromDrive() {
   if (!G.token()) { G.signIn({ intent: "add-drive" }); return; }
+  if (!(await G.checkScope())) { G.signIn({ intent: "add-drive", consent: true }); return; }
   let picked = [];
   try { picked = await G.pickFromDrive(); }
   catch (e) { alertDialog("Google Drive didn't open", "Check your internet connection and try again."); return; }
@@ -713,8 +714,13 @@ document.addEventListener("visibilitychange", () => {
 });
 
 // ---------- Drive sync ----------
+let askedDrive = false;
 onSync(kind => {
   refreshAccount();
+  if (kind === "error" && !G.hasDrive() && !askedDrive) {
+    askedDrive = true;
+    confirmDialog("Allow Google Drive", "When you signed in, the Google Drive box was left unticked, so Remagery can't save your books. Sign in again and tick the box: Remagery only sees the files it makes and the ones you pick.", "Sign in again", () => G.signIn({ consent: true }));
+  }
   if (kind === "library" && !making.length) renderLibrary();
 });
 

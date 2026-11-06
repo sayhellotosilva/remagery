@@ -62,6 +62,17 @@ export async function handleReturn() {
   return { ok: true, intent: saved.intent };
 }
 
+/// Asks Google which permissions this sign-in really has (the Drive box can be left unticked).
+export async function checkScope() {
+  const a = load();
+  if (!a.token || a.scope) return hasDrive();
+  try {
+    const r = await fetch("https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=" + a.token);
+    if (r.ok) { a.scope = (await r.json()).scope || ""; save(a); }
+  } catch (e) {}
+  return hasDrive();
+}
+
 export async function signOut() {
   const t = load().token;
   save({});

@@ -116,6 +116,7 @@ export async function sync() {
   running = (async () => {
     try {
       setStatus("Syncing");
+      if (!(await G.checkScope())) { const e = new Error("Google Drive wasn't allowed when you signed in."); e.status = 403; throw e; }
       const root = await rootFolder();
       const remote = await readLibrary(root);
       const removed = [...(remote.data.removed || [])];
