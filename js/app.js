@@ -274,6 +274,17 @@ function makingCard(job) {
   return card;
 }
 
+/// Moves a making card's bar and number. The card is only rebuilt when the cover first appears.
+function updateCard(job) {
+  const card = job.card;
+  if (!card) return;
+  if (job.coverURL && !card.querySelector("img")) { card.replaceWith(makingCard(job)); return; }
+  const pct = Math.round(job.progress * 100);
+  const bar = card.querySelector(".bar i"), st = card.querySelector(".status");
+  if (bar) bar.style.width = pct + "%";
+  if (st) st.textContent = `${job.status} · ${pct}%`;
+}
+
 function longPress(el, fn) {
   let t = null, fired = false;
   el.addEventListener("touchstart", () => { fired = false; t = setTimeout(() => { fired = true; fn(); }, 600); }, { passive: true });
@@ -326,8 +337,7 @@ async function startMaking(file) {
     if (job.cover && !job.coverURL) { job.coverURL = URL.createObjectURL(job.cover); last = 0; }
     if (Date.now() - last > 250 && job.card) {
       last = Date.now();
-      const fresh = makingCard(job);
-      job.card.replaceWith(fresh);
+      updateCard(job);
     }
   };
   try {
@@ -393,7 +403,7 @@ async function openBook(b) {
       let last = 0;
       b = await downloadBook(b, p => {
         job.progress = p * 0.5;
-        if (Date.now() - last > 250 && job.card) { last = Date.now(); job.card.replaceWith(makingCard(job)); }
+        if (Date.now() - last > 250 && job.card) { last = Date.now(); updateCard(job); }
       });
     } catch (e) {
       making.splice(making.indexOf(job), 1);
@@ -407,7 +417,7 @@ async function openBook(b) {
       let last = 0;
       await prepareVoice(b, pkg, ci, job, (s, p) => {
         job.status = s; job.progress = p;
-        if (Date.now() - last > 250 && job.card) { last = Date.now(); job.card.replaceWith(makingCard(job)); }
+        if (Date.now() - last > 250 && job.card) { last = Date.now(); updateCard(job); }
       }, 0.5, 0.99);
       await db.put("books", b.id, b);
     }

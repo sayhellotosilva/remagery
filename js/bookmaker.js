@@ -46,7 +46,7 @@ export async function makeBookFromPDF(file, id, progress, job) {
   const pages = [];
   for (let i = 0; i < n; i++) {
     check();
-    progress("Reading pages", 0.55 * i / n);
+    progress(`Reading page ${i + 1} of ${n}`, 0.55 * i / n);
     const page = await doc.getPage(i + 1);
     const tc = await page.getTextContent();
     const items = tc.items.filter(it => typeof it.str === "string");
@@ -115,9 +115,14 @@ export async function makeBookFromPDF(file, id, progress, job) {
   if (!drafts.length) throw new Error("No readable text was found in this PDF.");
 
   const chapters = [];
+  // Progress through this part goes by pictures, the slow bit
+  let picTotal = 0, picDone = 0;
+  for (const d of drafts) for (let pi = d.start; pi < d.end; pi++) picTotal += pages[pi].pics.length;
+  const picStep = () => progress(picTotal ? `Saving pictures · ${picDone} of ${picTotal}` : "Setting out the chapters",
+    0.6 + 0.39 * (picTotal ? picDone / picTotal : 1));
   for (let ci = 0; ci < drafts.length; ci++) {
     check();
-    progress(`Chapter ${ci + 1} of ${drafts.length}`, 0.6 + 0.39 * ci / drafts.length);
+    picStep();
     const d = drafts[ci];
     const flat = d.paragraphs.flat();
     const timings = estimateTimings(d.paragraphs.map(p => p.map(s => s.text)));
@@ -135,6 +140,7 @@ export async function makeBookFromPDF(file, id, progress, job) {
       if (!onPage.length) { const f = flat.findIndex(s => s.page >= pi); onPage = [f >= 0 ? f : flat.length - 1]; }
       await pause();
       for (let m = 0; m < pics.length; m++) {
+        picDone++; picStep();
         const idx = onPage[Math.min(onPage.length - 1, Math.floor(m * onPage.length / pics.length))];
         const start = Math.max(timings.sentences[idx].start, lastStart + 4);
         if (start >= timings.duration) continue;
