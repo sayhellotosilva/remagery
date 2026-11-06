@@ -79,7 +79,7 @@ Optional: search for **Budgets & alerts** and make a budget of €1, so Google e
 ## Good to know
 
 - **Your library lives in Google Drive.** Remagery makes a **Remagery** folder with one folder per book (text, images, cover) and a `library.json` with your progress and bookmarks. It can only see files you pick and files it makes.
-- **The voice stays on the phone.** It isn't saved to Drive, to save space. On a new device, a chapter's voice is made the first time you play it.
+- **The voice is saved to Drive too**, in the book's folder, once a chapter is made. On a new device it downloads from Drive instead of being made again, so it doesn't use the monthly voice allowance twice.
 - **On a new phone or laptop:** sign in and your books appear with "In Drive" on them. Each one downloads when you open it.
 - **Removing a book** moves its Drive folder to the bin. Your original PDF isn't touched.
 - **Making a book** happens on your phone. Keep Remagery on screen while it works (about a minute).

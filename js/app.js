@@ -716,7 +716,7 @@ function settingsSheet() {
       <div class="label">Speed</div>
       <div class="speed-grid">${speeds.map(s => `<button class="opt ${player.speed === s ? "on" : ""}" data-sp="${s}">${s}x</button>`).join("")}</div>
       ${G.googleReady() ? `<div class="label">Google account</div>
-        ${G.account() ? `<p class="help">Signed in as ${esc(G.account())}. Your books, progress and bookmarks are kept in the Remagery folder in your Google Drive. The voice stays on this phone.</p>
+        ${G.account() ? `<p class="help">Signed in as ${esc(G.account())}. Your books, progress and bookmarks are kept in the Remagery folder in your Google Drive, with the voice of each chapter once it’s made.</p>
           <div class="btn-row"><a class="tag line" id="driveLink" href="https://drive.google.com" target="_blank" rel="noopener">Open Remagery folder</a><button class="tag line" id="syncNow">Sync now</button><button class="tag line" id="signOut">Sign out</button></div>`
         : `<p class="help">Sign in to keep your books and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}` : ""}
       <div class="label">On your Home Screen</div>

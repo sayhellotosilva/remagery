@@ -4,8 +4,10 @@
 //     <Book title>/
 //       cover.jpg
 //       <Book title>.remagery   the book: text and images (a zip)
+//       Voice · Chapter 3 · en-GB-Wavenet-F.remagery-voice   a chapter's voice (MP3 + sentence times)
 // The phone keeps its own copy, so books open fast and play without internet.
-// The voice is never saved to Drive (it stays on the phone).
+// The voice is saved to Drive once it's made, so a new phone or a re-install downloads it
+// instead of making it again (which would use the monthly voice allowance).
 
 import { db } from "./db.js";
 import * as G from "./google.js";
@@ -89,6 +91,55 @@ export async function removeBook(rec) {
   scheduleSync(500);
 }
 
+// ---------- Voice ----------
+
+const voiceQuery = (folderId, ci, voice) => `'${folderId}' in parents and trashed=false`
+  + ` and appProperties has { key='remagery' and value='voice' }`
+  + ` and appProperties has { key='chapter' and value='${ci}' }`
+  + ` and appProperties has { key='voice' and value='${voice}' }`;
+
+/// Looks for a chapter's voice in the book's Drive folder. Returns { blob, duration, starts } or null.
+export async function fetchVoice(bookId, ci, voice) {
+  if (!G.token()) return null;
+  const rec = await db.get("books", bookId);
+  const folderId = rec && rec.drive && rec.drive.folderId;
+  if (!folderId) return null;
+  try {
+    const found = await G.list(voiceQuery(folderId, ci, voice), "files(id)");
+    if (!found.length) return null;
+    const zip = await window.JSZip.loadAsync(await G.download(found[0].id));
+    const t = JSON.parse(await zip.file("times.json").async("string"));
+    const blob = new Blob([await zip.file("voice.mp3").async("arraybuffer")], { type: "audio/mpeg" });
+    return { blob, duration: t.duration, starts: t.starts, inDrive: true };
+  } catch (e) { console.warn("[Remagery] voice from Drive failed:", e.message); return null; }
+}
+
+/// Saves to Drive any voice made on this phone that isn't there yet.
+async function uploadVoices(books) {
+  const byId = new Map(books.map(b => [b.id, b]));
+  for (const key of await db.keys("audio")) {
+    const [bookId, ci, voice] = String(key).split("/");
+    const book = byId.get(bookId);
+    if (!book || !book.drive || !book.drive.folderId || !voice) continue;
+    const a = await db.get("audio", key);
+    if (!a || a.inDrive) continue;
+    try {
+      const exists = await G.list(voiceQuery(book.drive.folderId, ci, voice), "files(id)");
+      if (!exists.length) {
+        setStatus(`Saving voice of “${book.title}”`);
+        const zip = new window.JSZip();
+        zip.file("voice.mp3", a.blob);
+        zip.file("times.json", JSON.stringify({ duration: a.duration, starts: a.starts }));
+        const blob = await zip.generateAsync({ type: "blob", compression: "STORE" });
+        await G.upload(blob, { name: `Voice · Chapter ${+ci + 1} · ${voice}.remagery-voice`, parent: book.drive.folderId,
+          mime: "application/zip", props: { remagery: "voice", bookId, chapter: String(ci), voice } });
+      }
+      a.inDrive = true;
+      await db.put("audio", key, a);
+    } catch (e) { if (e.status === 401) throw e; }
+  }
+}
+
 // ---------- The library ----------
 
 async function readLibrary(root) {
@@ -165,6 +216,7 @@ export async function sync() {
       const file = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
       if (remote.id) await G.upload(file, { id: remote.id, mime: "application/json" });
       else await G.upload(file, { name: "library.json", parent: root, props: { remagery: "library" }, mime: "application/json" });
+      await uploadVoices(merged);
       lastError = "";
       setStatus("");
       emit(changedLocal ? "library" : "done");

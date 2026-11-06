@@ -4,6 +4,7 @@
 
 import { db } from "./db.js";
 import { VOICE_SERVER, PACE } from "./config.js";
+import { fetchVoice, scheduleSync } from "./sync.js";
 
 export const hasVoiceServer = () => !!VOICE_SERVER;
 
@@ -96,6 +97,9 @@ export async function chapterAudio(bookId, ci, chapter, voice, onProgress) {
   const key = `${bookId}/${ci}/${voice}`;
   const saved = await db.get("audio", key);
   if (saved) return saved;
+  // Already made on another device? Download it from Drive instead of using the voice allowance
+  const fromDrive = await fetchVoice(bookId, ci, voice);
+  if (fromDrive) { await db.put("audio", key, fromDrive); return fromDrive; }
 
   const pieces = chunks(chapter);
   const results = new Array(pieces.length);
@@ -128,6 +132,7 @@ export async function chapterAudio(bookId, ci, chapter, voice, onProgress) {
   for (let k = 0; k < count; k++) if (starts[k] === null) starts[k] = k ? starts[k - 1] : 0;
   const rec = { blob: new Blob(allParts, { type: "audio/mpeg" }), duration: offset, starts };
   await db.put("audio", key, rec);
+  scheduleSync(5000); // saves it to Drive
   return rec;
 }
 
