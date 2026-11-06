@@ -91,7 +91,77 @@ function stateText(b) {
 
 // ---------- Library ----------
 let libraryEl = null;
+// ---------- First screens: Home Screen guide (iPhone browsers) and welcome (sign in) ----------
+const ua = navigator.userAgent;
+const isIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+/// On iPhone, Remagery is used from the Home Screen only: a browser tab has its own separate storage.
+const needsHomeScreen = isIOS && !isStandalone;
+
+function browserName() {
+  if (/CriOS/.test(ua)) return "chrome";
+  if (/FxiOS/.test(ua)) return "firefox";
+  if (/EdgiOS/.test(ua)) return "edge";
+  if (/Safari/.test(ua) && !/(OPiOS|YaBrowser|DuckDuckGo|GSA)/.test(ua)) return "safari";
+  return "other";
+}
+
+const DOTS = '<span class="ios-btn" aria-label="More"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg></span>';
+const SHARE = '<span class="ios-btn" aria-label="Share"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H5v10h14V11h-1"/></svg></span>';
+const ADD = '<span class="ios-btn" aria-label="Add"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M12 8v8M8 12h8"/></svg></span>';
+
+function renderGuide() {
+  const b = browserName();
+  const first = {
+    safari: `Tap ${DOTS} at the bottom right, then ${SHARE} <b>Share</b>.`,
+    chrome: `Tap ${SHARE} <b>Share</b> in the address bar at the top.`,
+    firefox: `Tap ${DOTS} (the menu), then ${SHARE} <b>Share</b>.`,
+    edge: `Tap ${DOTS} (the menu), then ${SHARE} <b>Share</b>.`,
+    other: `Open your browser's ${SHARE} <b>Share</b> menu.`,
+  }[b];
+  const top = b === "chrome";
+  const el = h(`<main class="gate gutter">
+    ${top ? `<div class="pointer top mono soft">Start here ↗</div>` : ""}
+    <div class="brand"><img class="app-icon" alt="" src="icon-180.png"><span class="mono soft">Remagery</span></div>
+    <h1 class="title gate-title">Put Remagery on your Home Screen.</h1>
+    <p class="gate-text">On iPhone, Remagery works as an app. It keeps reading when the phone is locked, works offline, and keeps your books in one place.</p>
+    <hr class="hair">
+    <div class="steps">
+      <div class="step"><span class="mono soft">01</span><span>${first}</span></div>
+      <div class="step"><span class="mono soft">02</span><span>Scroll down and tap ${ADD} <b>Add to Home Screen</b>.</span></div>
+      <div class="step"><span class="mono soft">03</span><span>Tap <b>Add</b>, then open Remagery from your Home Screen.</span></div>
+    </div>
+    ${top ? "" : `<div class="pointer mono soft">${b === "safari" ? "Start here ↘" : "Start with the menu ↘"}</div>`}
+  </main>`);
+  $app.innerHTML = "";
+  $app.appendChild(el);
+}
+
+function welcomeView() {
+  return h(`<main class="gate gutter">
+    <span class="mono soft">Welcome</span>
+    <h1 class="title welcome-title">Remagery.</h1>
+    <p class="gate-text">Design books read aloud, with each image shown when the text talks about it.</p>
+    <div class="facts">
+      <div class="fact"><span class="mono soft">Your library</span><span>Books and progress live in a Remagery folder in your own Google Drive.</span></div>
+      <div class="fact"><span class="mono soft">Your privacy</span><span>Remagery only sees the files it makes and the PDFs you pick.</span></div>
+    </div>
+    <div class="gate-bottom">
+      <button class="add" data-act="signin"><span class="g-dot">G</span>Sign in with Google</button>
+      <p class="help" style="text-align:center;margin-top:12px">Google will ask to let Remagery use its own folder in your Drive. Tick the box and tap Continue.</p>
+    </div>
+  </main>`);
+}
+
 async function renderLibrary() {
+  if (needsHomeScreen) { renderGuide(); return; }
+  // Signing in is required: your library lives in your Google Drive
+  if (G.googleReady() && !G.account()) {
+    const w = welcomeView();
+    if (libraryEl) libraryEl.replaceWith(w); else $app.prepend(w);
+    libraryEl = w;
+    return;
+  }
   await loadBooks();
   const playing = !!player.record;
   const el = h(`<main class="library gutter ${playing ? "playing" : ""}">
@@ -777,7 +847,7 @@ onSync(kind => {
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 applyTheme();
 renderLibrary();
-startGoogle();
+if (!needsHomeScreen) startGoogle();
 
 async function startGoogle() {
   if (!G.googleReady()) return;

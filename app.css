@@ -190,3 +190,25 @@ a.tag { text-decoration: none; }
 .add-opt { min-height: 64px; }
 .opt-title { display: block; font-size: 16px; }
 .opt-sub { display: block; font-size: 13px; color: var(--soft); margin-top: 3px; }
+
+/* First screens: Home Screen guide and welcome */
+.gate { box-sizing: border-box; min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; gap: 20px; max-width: 560px; margin: 0 auto;
+  padding-top: calc(28px + env(safe-area-inset-top, 0px)); padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
+.brand { display: flex; align-items: center; gap: 12px; }
+.app-icon { width: 52px; height: 52px; border-radius: 12px; display: block; box-shadow: 0 0 0 1px var(--line); }
+.gate-title { font-size: clamp(30px, 9vw, 40px); line-height: .98; }
+.welcome-title { font-size: clamp(40px, 13vw, 56px); }
+.gate-text { margin: 0; font-size: 16px; line-height: 1.45; max-width: 46ch; }
+.steps { display: grid; gap: 16px; }
+.step { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-items: start; font-size: 16px; line-height: 1.45; }
+.step .mono { padding-top: 3px; }
+.ios-btn { display: inline-flex; width: 26px; height: 26px; border-radius: 7px; background: var(--sheet); align-items: center; justify-content: center; vertical-align: -7px; margin: 0 2px; color: var(--ink); }
+.ios-btn svg { width: 16px; height: 16px; }
+.pointer { margin-top: auto; text-align: right; }
+.pointer.top { margin: 0; }
+.facts { display: grid; }
+.fact { display: grid; gap: 3px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 15.5px; line-height: 1.4; }
+.fact:first-child { border-top: 1px solid var(--line); }
+.gate-bottom { margin-top: auto; }
+.gate-bottom .add { width: 100%; }
+.g-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--paper); color: var(--ink); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
