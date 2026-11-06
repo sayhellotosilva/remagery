@@ -1,70 +1,86 @@
 # Remagery web app: setup
 
-Three free accounts, about 30–45 minutes in total. Do them in this order.
+The app is online at **https://sayhellotosilva.github.io/remagery/**.
 
-1. **GitHub Pages** puts the app online, so you and your friends get a link.
-2. **Google Cloud** makes the voice (4 million free characters a month).
-3. **Cloudflare** runs the small voice server, which keeps your Google key secret and stops before the free limit.
+Two more parts, about 30–40 minutes:
 
-Until step 3 is done, the app still works, but with the browser's own voice, which stops when the phone locks.
+1. **Google Cloud** is for Google sign-in, Google Drive (your books and progress) and the voice.
+2. **Cloudflare** runs the small voice server, which keeps your Google voice key secret and stops before the free limit.
 
 ---
 
-## 1. Put the app online (GitHub Pages)
+## 1. Google Cloud
 
-1. Go to github.com and sign in.
-2. Click **+** (top right) › **New repository**.
-3. Name: `remagery`. Choose **Public**. Click **Create repository**.
-4. On the next page, click **uploading an existing file**.
-5. Drag in everything from the `Web` folder **except** the `voice-server` folder. Include the `js` folder.
-6. Click **Commit changes**.
-7. Go to **Settings** › **Pages**.
-8. Under "Branch", choose **main** and **/(root)**, then click **Save**.
-9. Wait 1–2 minutes. The address appears at the top of that page, for example `https://yourname.github.io/remagery/`.
+Go to **console.cloud.google.com** and sign in with your Google account.
 
-Open it in Safari on your iPhone. Tap **Share** › **Add to Home Screen**.
+### 1a. Make a project
+1. Click the project menu at the top › **New project**. Name: `Remagery`. Click **Create**, then select it.
 
-## 2. Turn on the Google voice (Google Cloud)
+### 1b. Switch on three Google services
+For each one: type its name in the search bar at the top, open it, and click **Enable**.
+- **Google Drive API**
+- **Google Picker API**
+- **Cloud Text-to-Speech API**. Google asks for a billing account and a card here. Remagery's voice server stops at 3.8 million characters a month, below the free 4 million.
 
-1. Go to console.cloud.google.com and sign in with your Google account.
-2. At the top, click the project menu › **New project**. Name: `Remagery`. Click **Create**.
-3. Google asks for a billing account and a card. This is needed even for the free allowance. Remagery's voice server stops at 3.8 million characters a month, below the free 4 million.
-4. In the search bar, type **Cloud Text-to-Speech API**. Open it and click **Enable**.
-5. Search for **Credentials**. Click **Create credentials** › **API key**.
-6. Click **Edit API key** (or the key's name):
-   - Under "API restrictions", choose **Restrict key** and tick only **Cloud Text-to-Speech API**.
-   - Click **Save**.
-7. Copy the key. You'll paste it in Cloudflare in the next step. Don't share it.
-8. Optional but recommended: search for **Budgets & alerts** and make a budget of €1, so Google emails you if anything is ever charged.
+### 1c. The sign-in screen (Google Auth Platform)
+1. Search for **Google Auth Platform** and click **Get started**.
+2. App name: `Remagery`. Support email: your email. Click **Next**.
+3. Audience: **External**. Click **Next**.
+4. Contact email: your email. Click **Next**, tick to agree, then **Create**.
+5. Open **Data access** › **Add or remove scopes**. Tick `.../auth/drive.file`, `openid` and `.../auth/userinfo.email`. Click **Update**, then **Save**.
+6. Open **Audience** › **Publish app** › **Confirm**. Now friends can sign in too. These permissions don't need Google's review.
 
-## 3. Set up the voice server (Cloudflare)
+### 1d. The sign-in key (OAuth client)
+1. In Google Auth Platform, open **Clients** › **Create client**.
+2. Application type: **Web application**. Name: `Remagery web`.
+3. Authorized JavaScript origins › **Add URI**: `https://sayhellotosilva.github.io`
+4. Authorized redirect URIs › **Add URI**: `https://sayhellotosilva.github.io/remagery/`
+5. Click **Create**. Copy the **Client ID** (it ends in `.apps.googleusercontent.com`).
 
-1. Go to dash.cloudflare.com and make a free account.
-2. In the left menu: **Storage & Databases** › **KV** › **Create**. Name: `remagery-usage`. Click **Add**.
-3. In the left menu: **Compute (Workers)** › **Workers & Pages** › **Create** › **Create Worker**.
-4. Name: `remagery-voice`. Click **Deploy**.
-5. Click **Edit code**. Delete everything in the editor, paste the whole of `voice-server/worker.js`, and click **Deploy**.
-6. Go back to the worker and open **Settings**.
-   - **Bindings** › **Add** › **KV namespace**. Variable name: `USAGE`. Namespace: `remagery-usage`. Save.
+### 1e. Two API keys
+Search for **Credentials**.
+
+**Key 1: for choosing books in Drive**
+1. **Create credentials** › **API key**. Open the new key (**Edit API key**).
+2. Name: `Remagery picker`.
+3. Application restrictions: **Websites** › add `https://sayhellotosilva.github.io/*`
+4. API restrictions: **Restrict key** › tick only **Google Picker API**. Click **Save**. Copy the key.
+
+**Key 2: for the voice (keep this one secret)**
+1. **Create credentials** › **API key**. Open it.
+2. Name: `Remagery voice`. API restrictions: **Restrict key** › tick only **Cloud Text-to-Speech API**. Click **Save**.
+3. Copy it. It only goes into Cloudflare (step 2), never into the app.
+
+### 1f. Project number
+Click the project menu at the top. The **project number** is next to the project ID. Copy it.
+
+**Send Claude:** the Client ID, the picker key (Key 1) and the project number. These three aren't secret. Claude puts them in `js/config.js`.
+
+Optional: search for **Budgets & alerts** and make a budget of €1, so Google emails you if anything is ever charged.
+
+---
+
+## 2. The voice server (Cloudflare)
+
+1. Go to **dash.cloudflare.com** and make a free account.
+2. Left menu: **Storage & Databases** › **KV** › **Create**. Name: `remagery-usage`. Click **Add**.
+3. Left menu: **Compute (Workers)** › **Workers & Pages** › **Create** › **Create Worker**. Name: `remagery-voice`. Click **Deploy**.
+4. Click **Edit code**. Delete everything, paste the whole of `voice-server/worker.js`, and click **Deploy**.
+5. Back on the worker, open **Settings**:
+   - **Bindings** › **Add** › **KV namespace**. Variable name `USAGE`, namespace `remagery-usage`. Save.
    - **Variables and Secrets** › **Add**:
-     - Type **Secret**, name `GOOGLE_KEY`, value: your Google key from step 2.
-     - Type **Text**, name `ALLOWED_ORIGIN`, value: your GitHub address without the `/remagery/` part, for example `https://yourname.github.io`.
-   - Click **Deploy** to save.
-7. Copy the worker's address. It looks like `https://remagery-voice.yourname.workers.dev`.
-
-## 4. Connect the app to the voice server
-
-Send the worker's address to Claude. You'll get back a new `js/config.js`.
-Upload it to the `js` folder on GitHub (open the folder › **Add file** › **Upload files** › **Commit changes**).
-
-After a minute, open Remagery on your phone. In **Aa** › **Voice**, you'll see the Google voices and how much of the free allowance has been used this month.
+     - Type **Secret**, name `GOOGLE_KEY`, value: Key 2 from step 1e.
+     - Type **Text**, name `ALLOWED_ORIGIN`, value `https://sayhellotosilva.github.io`
+   - Click **Deploy**.
+6. Copy the worker's address (like `https://remagery-voice.yourname.workers.dev`) and send it to Claude.
 
 ---
 
 ## Good to know
 
-- **Making a book** happens on your phone. Keep Remagery open on screen while it works (about a minute).
-- **The voice** for a chapter is made online the first time you play it (a few seconds), then kept on the phone. The next chapter is made while you listen, so it plays straight on with the phone locked.
-- **Friends** use your voice allowance. A book is roughly half a million characters, so the free allowance covers about 7 books a month for everyone together. Settings shows how much is used.
-- **Books stay on each phone.** Add Remagery to your Home Screen so iOS keeps them safe.
-- **Copyright:** each person adds their own PDFs. No books are shared or uploaded anywhere.
+- **Your library lives in Google Drive.** Remagery makes a **Remagery** folder with one folder per book (text, images, cover) and a `library.json` with your progress and bookmarks. It can only see files you pick and files it makes.
+- **The voice stays on the phone.** It isn't saved to Drive, to save space. On a new device, a chapter's voice is made the first time you play it.
+- **On a new phone or laptop:** sign in and your books appear with "In Drive" on them. Each one downloads when you open it.
+- **Removing a book** moves its Drive folder to the bin. Your original PDF isn't touched.
+- **Making a book** happens on your phone. Keep Remagery on screen while it works (about a minute).
+- **Friends** sign in with their own Google account and get their own library. They share your voice allowance: about 7 books a month for everyone together.

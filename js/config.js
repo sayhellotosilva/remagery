@@ -3,6 +3,11 @@
 // Leave it empty to use the browser's own voice (it stops when the phone locks).
 export const VOICE_SERVER = "";
 
+// Google sign-in and Drive (see SETUP.md, step 2). Leave empty to use Remagery without an account.
+export const GOOGLE_CLIENT_ID = "";   // OAuth client ID, ends in .apps.googleusercontent.com
+export const GOOGLE_API_KEY = "";     // API key for the Google Drive picker
+export const GOOGLE_APP_ID = "";      // Google Cloud project number
+
 // Google voices offered in Settings (WaveNet: inside the 4 million free characters a month).
 export const VOICES = [
   { id: "en-GB-Wavenet-F", label: "British woman · F" },

@@ -155,3 +155,10 @@ button:focus-visible, [tabindex]:focus-visible { outline: 2px solid var(--ink); 
 .dialog .title { font-size: 24px; }
 
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+/* Google account and Drive */
+.acct { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 10px; }
+.acct-btn { text-align: left; height: 32px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cover.remote .frame > img, .cover.remote .frame > .titlecard { opacity: .55; }
+.drive-tag { position: absolute; left: 10px; top: 10px; background: #111; color: #E6E6E2; padding: 4px 7px; border-radius: 2px; font-size: 10px; }
+a.tag { text-decoration: none; }

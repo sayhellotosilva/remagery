@@ -7,6 +7,9 @@ import { PACE, DEFAULT_VOICE } from "./config.js";
 import { hasVoiceServer, chapterAudio, VoiceError } from "./voice.js";
 import { prefs, savePrefs } from "./prefs.js";
 
+// Tells the Drive sync that progress or bookmarks changed
+const changed = () => window.dispatchEvent(new Event("remagery:changed"));
+
 const SILENT = "silent.mp3";
 
 class Player {
@@ -64,6 +67,7 @@ class Player {
     if (!book) return;
     if (record.finished) { record.finished = false; record.progress = null; }
     record.lastOpened = Date.now();
+    record.updatedAt = Date.now();
     this.record = record; this.book = book;
     await db.put("books", record.id, record);
     this.emit("book");
@@ -303,7 +307,7 @@ class Player {
     if (this.sleep && this.sleep.endOfChapter) { this.setSleep(null); this.pause(); return; }
     if (this.book && this.ch + 1 < this.book.chapters.length) { await this.load(this.ch + 1, 0, true); return; }
     this.isPlaying = false;
-    if (this.record) { this.record.finished = true; this.record.progress = null; await db.put("books", this.record.id, this.record); }
+    if (this.record) { this.record.finished = true; this.record.progress = null; this.record.updatedAt = Date.now(); await db.put("books", this.record.id, this.record); changed(); }
     this.setState();
   }
 
@@ -314,7 +318,9 @@ class Player {
     const total = this.book.chapters.length;
     this.record.progress = { ch: this.ch, s: Math.max(this.cur, 0) };
     this.record.percent = Math.min(1, (this.ch + (this.duration ? this.time / this.duration : 0)) / total);
+    this.record.updatedAt = Date.now();
     db.put("books", this.record.id, this.record).catch(() => {});
+    changed();
   }
 
   // ---------- Bookmarks ----------
@@ -328,13 +334,17 @@ class Player {
     const i = list.findIndex(b => b.sid === sid);
     if (i >= 0) list.splice(i, 1);
     else list.push({ sid, ch: this.ch, s: this.cur, text: this.sentences[this.cur].text, added: Date.now() });
+    this.record.updatedAt = Date.now();
     db.put("books", this.record.id, this.record);
+    changed();
     this.emit("bookmarks");
   }
   removeBookmark(sid) {
     if (!this.record) return;
     this.record.bookmarks = (this.record.bookmarks || []).filter(b => b.sid !== sid);
+    this.record.updatedAt = Date.now();
     db.put("books", this.record.id, this.record);
+    changed();
     this.emit("bookmarks");
   }
   async goToBookmark(b) {

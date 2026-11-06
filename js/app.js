@@ -6,6 +6,8 @@ import { makeBookFromPDF, Cancelled } from "./bookmaker.js";
 import { importPackage } from "./package.js";
 import { VOICES, DEFAULT_VOICE } from "./config.js";
 import { hasVoiceServer, usage, sample } from "./voice.js";
+import * as G from "./google.js";
+import { sync, onSync, syncStatus, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
 
 const $app = document.getElementById("app");
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -95,6 +97,7 @@ async function renderLibrary() {
   const playing = !!player.record;
   const el = h(`<main class="library gutter ${playing ? "playing" : ""}">
     <div class="lib-top"><h1>Library</h1>${switchHTML()}</div>
+    <div id="acctSlot"></div>
     <div class="grid" id="grid"></div>
     <div class="dock gutter">
       <div id="miniSlot"></div>
@@ -107,28 +110,72 @@ async function renderLibrary() {
   const grid = el.querySelector("#grid");
   if (!books.length && !making.length) {
     grid.replaceWith(h(`<div class="empty"><hr class="hair">
-      <div class="step"><span class="mono">01</span><span>Tap Add book and choose the book's PDF, or a .zip made with the ChatGPT prompt.</span></div>
-      <div class="step"><span class="mono">02</span><span>Remagery gets it ready on your phone in about a minute. Keep this page open while it works.</span></div>
-      <div class="step"><span class="mono">03</span><span>Tap the book. Images appear as they're mentioned. Read shows the text.</span></div>
+      ${G.googleReady() && !G.account() ? `<div class="step"><span class="mono">01</span><span>Sign in with Google. Your books and progress are kept in a Remagery folder in your Google Drive.</span></div>` : ""}
+      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "02" : "01"}</span><span>Tap Add book and choose a PDF from Google Drive or this phone, or a .zip made with the ChatGPT prompt.</span></div>
+      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "03" : "02"}</span><span>Remagery gets it ready in about a minute. Keep this page open while it works.</span></div>
+      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "04" : "03"}</span><span>Tap the book. Images appear as they're mentioned. Read shows the text.</span></div>
     </div>`));
   }
   for (const job of making) grid.appendChild(makingCard(job));
   for (const b of books) {
-    const card = h(`<button class="cover" style="transform:rotate(${coverTilt(b.id)}deg)" aria-label="${esc(b.title)}. ${esc(stateText(b))}">
-      <div class="frame"><div class="titlecard">${esc(b.title)}</div>
+    const remote = b.local === false;
+    const card = h(`<button class="cover ${remote ? "remote" : ""}" style="transform:rotate(${coverTilt(b.id)}deg)" aria-label="${esc(b.title)}. ${esc(stateText(b))}${remote ? ". In Google Drive, downloads when you open it" : ""}">
+      <div class="frame"><div class="titlecard">${esc(b.title)}</div>${remote ? `<span class="drive-tag mono">In Drive</span>` : ""}
       ${(b.progress || b.finished) ? `<div class="bar"><i style="width:${b.finished ? 100 : Math.round((b.percent || 0) * 100)}%"></i></div>` : ""}</div></button>`);
     coverURL(b).then(u => { if (u) card.querySelector(".titlecard").replaceWith(h(`<img alt="" src="${u}">`)); });
     card.addEventListener("click", () => openBook(b));
-    longPress(card, () => confirmDialog("Remove this book?", "Its images and voice are deleted from this phone.", "Remove", async () => {
-      if (player.record && player.record.id === b.id) player.close();
-      await Promise.all([db.del("books", b.id), db.del("packages", b.id), db.delPrefix("files", b.id + "/"), db.delPrefix("audio", b.id + "/")]);
-      renderLibrary();
-    }));
+    longPress(card, () => confirmDialog("Remove this book?",
+      b.drive ? "It's removed from this phone and its folder goes to the bin in your Google Drive. Your original PDF isn't touched." : "Its images and voice are deleted from this phone.",
+      "Remove", async () => {
+        if (player.record && player.record.id === b.id) player.close();
+        await removeBook(b);
+        renderLibrary();
+      }));
     grid.appendChild(card);
   }
   el.querySelector("#miniSlot").replaceWith(miniPlayer());
+  el.querySelector("#acctSlot").replaceWith(accountLine());
   if (libraryEl) libraryEl.replaceWith(el); else $app.prepend(el);
   libraryEl = el;
+}
+
+/// Under the Library title: who's signed in and whether the library is saved in Drive.
+function accountLine() {
+  if (!G.googleReady()) return h(`<div id="acctSlot" hidden></div>`);
+  const email = G.account();
+  if (!email) {
+    const el = h(`<div id="acctSlot" class="acct"><button class="tag" data-act="signin">Sign in with Google</button><span class="mono soft">Keep your books in your Google Drive</span></div>`);
+    return el;
+  }
+  const st = syncStatus();
+  const tokenOK = !!G.token();
+  const text = (st && st.length < 22 ? st : st ? "Syncing" : "") || (tokenOK ? "Synced" : "Tap to sync");
+  const el = h(`<div id="acctSlot" class="acct"><button class="mono soft acct-btn" data-act="${tokenOK ? "settings" : "signin"}">${esc(email)} · ${esc(text)}</button></div>`);
+  return el;
+}
+function refreshAccount() { const a = libraryEl && libraryEl.querySelector("#acctSlot"); if (a) a.replaceWith(accountLine()); }
+
+function addSheet() {
+  if (!G.googleReady()) { picker.click(); return; }
+  openSheet("Add a book", close => {
+    const wrap = h(`<div class="list">
+      <button data-src="drive"><span><span class="name">From Google Drive</span><span class="num" style="margin:4px 0 0">PDF or ChatGPT .zip</span></span><span></span></button>
+      <button data-src="phone"><span><span class="name">From this phone</span><span class="num" style="margin:4px 0 0">Files, iCloud Drive, Downloads</span></span><span></span></button>
+    </div>`);
+    wrap.querySelector('[data-src="phone"]').onclick = () => { close(); picker.click(); };
+    wrap.querySelector('[data-src="drive"]').onclick = () => { close(); addFromDrive(); };
+    const note = h(`<p class="help">${G.account() ? "Finished books are saved in the Remagery folder in your Google Drive." : "You'll sign in with Google first. Finished books are saved in a Remagery folder in your Google Drive."}</p>`);
+    const box = document.createElement("div"); box.append(wrap, note);
+    return box;
+  });
+}
+
+async function addFromDrive() {
+  if (!G.token()) { G.signIn({ intent: "add-drive" }); return; }
+  let picked = [];
+  try { picked = await G.pickFromDrive(); }
+  catch (e) { alertDialog("Google Drive didn't open", "Check your internet connection and try again."); return; }
+  for (const f of picked) startMaking({ driveId: f.id, name: f.name, type: f.mimeType });
 }
 
 function makingCard(job) {
@@ -178,6 +225,7 @@ async function startMaking(file) {
   keepStorage();
   const id = uid();
   const isPDF = /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+  const fromDrive = !!file.driveId;
   const job = { id, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "), status: isPDF ? "Reading the PDF" : "Opening", progress: 0, cancelled: false };
   making.unshift(job);
   renderLibrary();
@@ -192,14 +240,26 @@ async function startMaking(file) {
     }
   };
   try {
-    const book = isPDF ? await makeBookFromPDF(file, id, progress, job) : await importPackage(file, id, progress);
+    if (fromDrive) {
+      progress("Downloading from Drive", 0);
+      const blob = await G.download(file.driveId, p => progress("Downloading from Drive", p * 0.15));
+      file = new File([blob], file.name, { type: blob.type || file.type });
+    }
+    const inner = fromDrive ? (s, p) => progress(s, 0.15 + p * 0.75) : (s, p) => progress(s, p * 0.9);
+    const book = isPDF ? await makeBookFromPDF(file, id, inner, job) : await importPackage(file, id, inner);
     if (job.cancelled) throw new Cancelled();
     await db.put("packages", id, book);
-    await db.put("books", id, {
+    const rec = {
       id, title: book.title, authors: book.authors || "", cover: book.cover || null,
       chapters: book.chapters.map(c => ({ number: c.number ?? 0, title: c.title || "" })),
-      added: Date.now(), lastOpened: null, progress: null, finished: false, bookmarks: [], percent: 0,
-    });
+      added: Date.now(), lastOpened: null, progress: null, finished: false, bookmarks: [], percent: 0, updatedAt: Date.now(),
+    };
+    await db.put("books", id, rec);
+    // Save it in the Remagery folder in Google Drive
+    if (G.token()) {
+      try { await uploadBook(rec, p => progress("Saving to Google Drive", 0.9 + p * 0.09)); scheduleSync(500); }
+      catch (e) { scheduleSync(5000); }
+    }
   } catch (e) {
     await Promise.all([db.delPrefix("files", id + "/"), db.del("packages", id)]).catch(() => {});
     if (!(e instanceof Cancelled)) alertDialog("Couldn't make the book", e.message || "Something went wrong.");
@@ -214,6 +274,28 @@ let follow = true;
 
 async function openBook(b) {
   player.unlock();
+  if (b.local === false) {
+    // The book is in Google Drive but not on this phone yet: download it first
+    if (!G.token()) { G.signIn({ intent: "open:" + b.id }); return; }
+    if (making.some(j => j.id === b.id)) return;
+    const job = { id: b.id, title: b.title, status: "Downloading", progress: 0, cancelled: false };
+    making.unshift(job);
+    await renderLibrary();
+    try {
+      let last = 0;
+      b = await downloadBook(b, p => {
+        job.progress = p * 0.99;
+        if (Date.now() - last > 250 && job.card) { last = Date.now(); job.card.replaceWith(makingCard(job)); }
+      });
+    } catch (e) {
+      making.splice(making.indexOf(job), 1);
+      renderLibrary();
+      alertDialog("Couldn't download the book", e.status === 401 ? "Sign in again and try once more." : "Check your internet connection and try again.");
+      return;
+    }
+    making.splice(making.indexOf(job), 1);
+    await renderLibrary();
+  }
   showPlayer();
   await player.open(b);
 }
@@ -503,12 +585,23 @@ function settingsSheet() {
       </div>
       <div class="section"><span class="mono soft">Images</span>
         <div class="list"><div><span class="name">Sound when an image appears</span><button class="toggle" id="chime" aria-pressed="${prefs.chime !== false}" aria-label="Sound when an image appears"></button></div></div></div>
+      ${G.googleReady() ? `<div class="section"><span class="mono soft">Google account</span>
+        ${G.account() ? `<p class="help" style="margin-top:0">Signed in as ${esc(G.account())}. Your books, progress and bookmarks are kept in the Remagery folder in your Google Drive. The voice stays on this phone.</p>
+          <div class="btn-row"><a class="tag line" id="driveLink" href="https://drive.google.com" target="_blank" rel="noopener">Open Remagery folder</a><button class="tag line" id="syncNow">Sync now</button><button class="tag line" id="signOut">Sign out</button></div>`
+        : `<p class="help" style="margin-top:0">Sign in to keep your books and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}
+      </div>` : ""}
       <div class="section"><span class="mono soft">On your Home Screen</span>
         <p class="help" style="margin-top:0">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen, and iOS keeps your books safe.</p></div>
     </div>`);
     wrap.querySelectorAll("[data-ap]").forEach(b => b.onclick = () => { prefs.appearance = b.dataset.ap; savePrefs(); applyTheme(); player.artCache && player.artCache.clear(); refill(); });
     wrap.querySelector("#tsize").oninput = e => { prefs.textSize = +e.target.value; savePrefs(); applyTheme(); };
     wrap.querySelectorAll("[data-sp]").forEach(b => b.onclick = () => { player.speed = +b.dataset.sp; refill(); });
+    const so = wrap.querySelector("#signOut");
+    if (so) so.onclick = () => confirmDialog("Sign out?", "Your books stay in your Google Drive and on this phone.", "Sign out", async () => { await G.signOut(); close(); renderLibrary(); });
+    const sn = wrap.querySelector("#syncNow");
+    if (sn) sn.onclick = async () => { if (!G.token()) { G.signIn(); return; } sn.textContent = "Syncing…"; await sync(); sn.textContent = "Sync now"; };
+    const dl = wrap.querySelector("#driveLink");
+    if (dl && G.token()) rootLink().then(u => { dl.href = u; }).catch(() => {});
     wrap.querySelector("#chime").onclick = e => { prefs.chime = !(prefs.chime !== false); savePrefs(); e.currentTarget.setAttribute("aria-pressed", prefs.chime); };
     if (voiceOn) {
       const list = wrap.querySelector("#voices");
@@ -570,7 +663,8 @@ document.addEventListener("click", e => {
   if (["play", "b15", "f30", "prev", "next", "retry"].includes(act)) player.unlock();
   switch (act) {
     case "theme": toggleTheme(); break;
-    case "add": picker.click(); break;
+    case "add": addSheet(); break;
+    case "signin": G.signIn(); break;
     case "settings": settingsSheet(); break;
     case "close": closePlayer(); break;
     case "chapters": chaptersSheet(0); break;
@@ -602,10 +696,41 @@ document.addEventListener("click", e => {
 });
 
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") player.saveProgress(true);
+  if (document.visibilityState === "hidden") { player.saveProgress(true); if (G.token()) sync(); }
   else { player.tick(player.useAudio ? player.audio.currentTime : player.time); renderFigure(); }
+});
+
+// ---------- Drive sync ----------
+onSync(kind => {
+  refreshAccount();
+  if (kind === "library" && !making.length) renderLibrary();
 });
 
 // ---------- Start ----------
 applyTheme();
 renderLibrary();
+startGoogle();
+
+async function startGoogle() {
+  if (!G.googleReady()) return;
+  const back = await G.handleReturn();
+  if (back && back.ok) {
+    renderLibrary();
+    await sync();
+    if (back.intent === "add-drive") addFromDrive();
+    else if (back.intent && back.intent.startsWith("open:")) {
+      const b = await db.get("books", back.intent.slice(5));
+      if (b) openBook(b);
+    }
+    return;
+  }
+  if (back && !back.ok && !back.silent && back.error !== "access_denied") alertDialog("Sign-in didn't finish", "Try again from Library.");
+  // Signed in before, but the hour-long pass has run out: renew it quietly (at most every 10 minutes)
+  if (G.account() && !G.token() && !(back && back.silent)) {
+    let tried = false;
+    try { tried = Date.now() - (+localStorage.getItem("remagery.silent") || 0) < 10 * 60000; localStorage.setItem("remagery.silent", String(Date.now())); } catch (e) {}
+    if (!tried && !player.isPlaying) { G.signIn({ silent: true }); return; }
+  }
+  if (G.token()) sync();
+  refreshAccount();
+}
