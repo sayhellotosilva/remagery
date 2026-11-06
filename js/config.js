@@ -10,13 +10,9 @@ export const GOOGLE_APP_ID = "489478449653";      // Google Cloud project number
 
 // Google voices offered in Settings (WaveNet: inside the 4 million free characters a month).
 export const VOICES = [
-  { id: "en-GB-Wavenet-F", label: "British woman · F" },
-  { id: "en-GB-Wavenet-A", label: "British woman · A" },
-  { id: "en-GB-Wavenet-C", label: "British woman · C" },
-  { id: "en-US-Wavenet-F", label: "American woman · F" },
-  { id: "en-US-Wavenet-H", label: "American woman · H" },
-  { id: "en-GB-Wavenet-B", label: "British man · B" },
-  { id: "en-GB-Wavenet-D", label: "British man · D" },
+  { id: "en-GB-Wavenet-F", label: "Voice 1" }, // British woman
+  { id: "en-US-Wavenet-F", label: "Voice 2" }, // American woman
+  { id: "en-GB-Wavenet-B", label: "Voice 3" }, // British man
 ];
 export const DEFAULT_VOICE = "en-GB-Wavenet-F";
 
