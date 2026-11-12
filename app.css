@@ -212,3 +212,6 @@ a.tag { text-decoration: none; }
 .gate-bottom { margin-top: auto; }
 .gate-bottom .add { width: 100%; }
 .g-dot { width: 20px; height: 20px; border-radius: 50%; background: var(--paper); color: var(--ink); display: grid; place-items: center; font-size: 12px; font-weight: 700; }
+
+/* No page zoom: double-tap and pinch don't zoom the page (images have their own zoom, text has Text size) */
+html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }

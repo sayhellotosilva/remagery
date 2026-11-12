@@ -861,6 +861,9 @@ onSync(kind => {
   if (kind === "library" && !making.length) renderLibrary();
 });
 
+// No page zoom on iPhone: Safari still allows pinching, so stop it here.
+for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(ev, e => e.preventDefault(), { passive: false });
+
 // ---------- Start ----------
 // Keep a copy of the app on the phone so it opens without internet
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});

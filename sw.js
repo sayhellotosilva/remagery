@@ -1,7 +1,7 @@
 // Lets Remagery open without internet: keeps a copy of the app's own files on the phone.
 // Books, images and voice are already kept on the phone by the app itself.
 // IMPORTANT: change this name with every release, or phones keep the old version.
-const CACHE = "remagery-app-v10";
+const CACHE = "remagery-app-v11";
 const APP = ["./", "index.html", "privacy.html", "app.css", "manifest.webmanifest", "icon-180.png", "icon-192.png", "icon-512.png",
   "chime.mp3", "silent.mp3", "js/app.js", "js/player.js", "js/voice.js", "js/bookmaker.js", "js/db.js",
   "js/prefs.js", "js/config.js", "js/google.js", "js/sync.js"];
