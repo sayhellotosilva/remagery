@@ -31,11 +31,23 @@
 </main>
 <script type="module">
 import { stats } from "./js/voice.js";
+import * as G from "./js/google.js";
+const OWNER = "sayhellotosilva@gmail.com";
 const out = document.getElementById("out");
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const names = (() => { try { return new Intl.DisplayNames(["en"], { type: "region" }); } catch (e) { return null; } })();
 const country = c => (c === "??" ? "Unknown" : (names && names.of(c)) || c);
 const monthName = m => new Date(m + "-01T12:00:00").toLocaleString("en", { month: "long", year: "numeric" });
+// Google's sign-in lasts an hour: renew it quietly first, so the voice server knows it's you
+await G.handleReturn();
+let tried = false;
+try { tried = sessionStorage.getItem("remagery.statsSignin") === "1"; } catch (e) {}
+if (!G.token() && G.account() === OWNER && !tried) {
+  try { sessionStorage.setItem("remagery.statsSignin", "1"); } catch (e) {}
+  G.signIn({ silent: true });
+  await new Promise(() => {}); // leaving for Google; the page opens again when it comes back
+}
+try { sessionStorage.removeItem("remagery.statsSignin"); } catch (e) {}
 try {
   const j = await stats();
   if (!j.months.length) { out.innerHTML = `<p class="mono soft">No numbers yet. They start from the next time someone opens Remagery.</p>`; }
@@ -58,7 +70,8 @@ try {
   }
 } catch (e) {
   // Anyone else just goes back to Remagery
-  if (e.notOwner) location.replace("./");
+  if (e.notOwner && G.account() !== OWNER) location.replace("./");
+  else if (e.notOwner) out.innerHTML = `<p class="mono soft">Couldn't confirm it's you. Open Remagery, wait a few seconds, then try Stats again.</p>`;
   else out.innerHTML = `<p class="mono soft">${esc(e.message)}</p>`;
 }
 </script>
