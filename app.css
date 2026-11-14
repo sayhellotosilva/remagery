@@ -247,3 +247,15 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 html { overscroll-behavior: none; }
 .library { box-sizing: border-box; }
 .remove-btn { justify-self: center; margin-top: 10px; }
+
+/* No text selection while holding a cover or using sheets (it showed blue handles on iPhone) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, .read-text, .para { -webkit-user-select: text; user-select: text; }
+
+/* Edit and add forms: lighter, smaller */
+.later-form { gap: 4px; }
+.later-form .label { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); margin: 0; padding: 12px 0 4px; }
+.later-form .field { height: 42px; font-size: 16px; border-radius: 10px; padding: 0 12px; background: transparent; border-color: var(--line); }
+.later-form .field:focus { outline: none; border-color: var(--ink); }
+.later-form .add { height: 44px; border-radius: 22px; font-size: 12px; letter-spacing: .1em; margin-top: 16px !important; flex: none; }
+.later-form .remove-btn { height: auto; padding: 6px 2px; box-shadow: none; font-family: var(--mono); font-size: 11px; font-weight: 400; letter-spacing: .06em; color: var(--soft); text-decoration: underline; text-underline-offset: 3px; margin-top: 8px; }
