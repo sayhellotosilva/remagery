@@ -236,9 +236,9 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .library.from-left { animation: from-left .3s ease; }
 @keyframes from-right { from { transform: translateX(28%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes from-left { from { transform: translateX(-28%); opacity: 0; } to { transform: none; opacity: 1; } }
-.later-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 16px; padding-top: 18px; max-width: 760px; }
-.later-sq { aspect-ratio: 1; min-width: 0; border-radius: 9px; background: var(--sheet); box-shadow: 0 0 0 1px var(--line); padding: 10px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; -webkit-touch-callout: none; user-select: none; overflow: hidden; }
-.later-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: -.01em; line-height: 1.1; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
-.later-author { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.later-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 22px; padding-top: 18px; max-width: 760px; }
+.later-sq { aspect-ratio: .77; width: 100%; min-width: 0; border-radius: 9px; background: var(--sheet); box-shadow: 0 0 0 3px rgba(255,255,255,.75), 0 6px 16px rgba(0,0,0,.12); padding: 12px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; -webkit-touch-callout: none; user-select: none; overflow: hidden; }
+.later-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: -.01em; line-height: 1.1; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden; }
+.later-author { font-size: 12px; letter-spacing: .04em; text-transform: uppercase; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .later-form { display: grid; gap: 6px; }
 .field { font: inherit; font-size: 17px; height: 50px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 0 14px; width: 100%; box-sizing: border-box; }

@@ -209,7 +209,7 @@ function laterView() {
     </div>`));
   }
   for (const it of list) {
-    const sq = h(`<button class="later-sq" style="transform:rotate(${coverTilt(it.id) / 2}deg)" aria-label="${esc(it.title)}${it.author ? ", " + esc(it.author) : ""}. Tap to add its PDF">
+    const sq = h(`<button class="later-sq" style="transform:rotate(${coverTilt(it.id)}deg)" aria-label="${esc(it.title)}${it.author ? ", " + esc(it.author) : ""}. Tap to add its PDF">
       <span class="later-title" style="font-size:${laterSize(it.title)}px">${esc(it.title)}</span>${it.author ? `<span class="later-author mono">${esc(it.author)}</span>` : ""}</button>`);
     sq.addEventListener("click", () => { pendingLater = { id: it.id, at: Date.now() }; addSheet(it.title); });
     longPress(sq, () => confirmDialog("Remove from Later?", `“${it.title}” is taken off your Later list.`, "Remove", () => { removeLater(it.id); scheduleSync(2000); renderLibrary(); }));
@@ -222,7 +222,7 @@ function laterView() {
 /// Smaller type for titles with long words, so words aren't broken in the middle.
 function laterSize(t) {
   const longest = Math.max(...t.split(/\s+/).map(w => w.length));
-  return longest > 12 ? 10.5 : longest > 9 ? 12 : 14;
+  return longest > 12 ? 15 : longest > 9 ? 17 : 20;
 }
 
 function addLaterSheet() {
