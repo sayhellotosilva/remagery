@@ -57,7 +57,9 @@ try {
       <div class="rows">${before.map(m => `<div class="row"><span>${esc(monthName(m.month))}</span><span class="mono">${m.users} ${m.users === 1 ? "person" : "people"} · ${Object.keys(m.countries).length} ${Object.keys(m.countries).length === 1 ? "country" : "countries"} · ${m.pdfs} ${m.pdfs === 1 ? "PDF" : "PDFs"}</span></div>`).join("")}</div>` : ""}`;
   }
 } catch (e) {
-  out.innerHTML = `<p class="mono soft">${esc(e.message)}</p>`;
+  // Anyone else just goes back to Remagery
+  if (e.notOwner) location.replace("./");
+  else out.innerHTML = `<p class="mono soft">${esc(e.message)}</p>`;
 }
 </script>
 </body>

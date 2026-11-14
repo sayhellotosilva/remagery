@@ -181,7 +181,8 @@ export async function stats() {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token() || "", pass: getPass() }),
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(r.status === 403 ? "Only Remagery's owner can see the stats." : (j.error || "The voice server didn't answer."));
+  if (r.status === 403) { const e = new Error(""); e.notOwner = true; throw e; }
+  if (!r.ok) throw new Error(j.error || "The voice server didn't answer.");
   if (!Array.isArray(j.months)) throw new Error("Paste the new voice server code into Cloudflare to see the stats.");
   keepPass(j);
   return j;
