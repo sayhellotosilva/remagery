@@ -173,18 +173,34 @@ function goPage(page) {
   });
 }
 function addSwipe(el) {
-  let x0 = 0, y0 = 0, t0 = 0, on = false;
+  // The covers follow your finger sideways; let go past a short distance (or flick) to switch page.
+  let x0 = 0, y0 = 0, t0 = 0, dx = 0, lock = null, content = null;
+  const allowed = d => (libPage === "library" ? d < 0 : d > 0);
+  const reset = () => { if (content) { content.style.transition = "transform .2s ease"; content.style.transform = ""; } };
   el.addEventListener("touchstart", e => {
-    if (e.touches.length !== 1 || e.target.closest(".dock, .sheet-back")) { on = false; return; }
-    on = true; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+    lock = null; dx = 0;
+    if (e.touches.length !== 1 || e.target.closest(".dock, .sheet-back")) { lock = "off"; return; }
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+    content = el.querySelector(".grid, .later-grid, .empty");
   }, { passive: true });
-  el.addEventListener("touchend", e => {
-    if (!on) return; on = false;
-    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
-    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - t0 > 800) return;
-    if (dx < 0 && libPage === "library") goPage("later");
-    else if (dx > 0 && libPage === "later") goPage("library");
+  el.addEventListener("touchmove", e => {
+    if (lock === "off" || lock === "y") return;
+    const t = e.touches[0]; dx = t.clientX - x0; const dy = t.clientY - y0;
+    if (!lock && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) lock = Math.abs(dx) > Math.abs(dy) ? "x" : "y";
+    if (lock === "x" && content) {
+      const d = allowed(dx) ? dx * 0.6 : dx * 0.15; // a little give the wrong way
+      content.style.transition = "none"; content.style.transform = `translateX(${d}px)`;
+    }
   }, { passive: true });
+  const end = () => {
+    if (lock !== "x") { lock = null; return; }
+    lock = null;
+    const fast = Math.abs(dx) / Math.max(1, Date.now() - t0) > 0.3;
+    if (allowed(dx) && (Math.abs(dx) > 50 || (fast && Math.abs(dx) > 20))) goPage(libPage === "library" ? "later" : "library");
+    else reset();
+  };
+  el.addEventListener("touchend", end, { passive: true });
+  el.addEventListener("touchcancel", end, { passive: true });
 }
 
 /// The Later page: titles you want to read, as little squares.
