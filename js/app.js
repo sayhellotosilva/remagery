@@ -166,7 +166,11 @@ function goPage(page) {
   if (page === libPage) return;
   const dir = page === "later" ? "from-right" : "from-left";
   libPage = page;
-  renderLibrary().then(() => { if (libraryEl) { libraryEl.classList.add(dir); setTimeout(() => libraryEl && libraryEl.classList.remove(dir), 320); } });
+  // Only the covers slide in; the title, buttons and everything else stay where they are
+  renderLibrary().then(() => {
+    const c = libraryEl && libraryEl.querySelector(".grid, .later-grid, .empty");
+    if (c) { c.classList.add(dir); setTimeout(() => c.classList.remove(dir), 320); }
+  });
 }
 function addSwipe(el) {
   let x0 = 0, y0 = 0, t0 = 0, on = false;

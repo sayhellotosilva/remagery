@@ -232,8 +232,8 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .page-dots { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -20%); display: flex; gap: 6px; }
 .page-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
 .page-dots i.on { background: var(--ink); }
-.library.from-right { animation: from-right .3s ease; }
-.library.from-left { animation: from-left .3s ease; }
+.from-right { animation: from-right .3s ease; }
+.from-left { animation: from-left .3s ease; }
 @keyframes from-right { from { transform: translateX(28%); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes from-left { from { transform: translateX(-28%); opacity: 0; } to { transform: none; opacity: 1; } }
 .later-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 26px 22px; padding-top: 18px; max-width: 760px; }
