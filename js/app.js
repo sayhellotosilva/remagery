@@ -6,7 +6,7 @@ import { makeBookFromPDF, Cancelled } from "./bookmaker.js";
 import { voicesFor, LANG_NAMES } from "./config.js";
 import { makeShareCard, booksThisMonth, SITE } from "./sharecard.js";
 import { laterList, addLater, removeLater, updateLater } from "./later.js";
-import { hasVoiceServer, usage, sample, chapterAudio } from "./voice.js";
+import { hasVoiceServer, usage, sample, chapterAudio, hello } from "./voice.js";
 import * as G from "./google.js";
 import { sync, onSync, syncStatus, syncError, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
 
@@ -952,6 +952,7 @@ function settingsSheet() {
         ${G.account() ? `<p class="help">Signed in as ${esc(G.account())}. Your PDFs, progress and bookmarks are kept in the Remagery folder in your Google Drive, with the voice of each chapter once it’s made.</p>
           <div class="btn-row"><a class="tag line" id="driveLink" href="https://drive.google.com" target="_blank" rel="noopener">Open Remagery folder</a><button class="tag line" id="syncNow">Sync now</button><button class="tag line" id="signOut">Sign out</button></div>`
         : `<p class="help">Sign in to keep your PDFs and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}` : ""}
+      ${G.account() === "sayhellotosilva@gmail.com" ? `<p class="help" style="margin-top:6px"><a class="mono" style="color:inherit" href="stats.html">Stats</a></p>` : ""}
       <div class="label">On your Home Screen</div>
       <p class="help">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen and keeps your PDFs safe.</p>
       <p class="help" style="margin-top:18px"><a class="mono" style="color:inherit" href="privacy.html">Privacy</a></p>
@@ -1088,6 +1089,8 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catc
 applyTheme();
 renderLibrary();
 if (!needsHomeScreen) startGoogle();
+// Counted once a day in the anonymous monthly totals (how many people, which countries)
+setTimeout(() => { if (!needsHomeScreen && G.account()) hello(); }, 4000);
 
 async function startGoogle() {
   if (!G.googleReady()) return;

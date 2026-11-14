@@ -13,6 +13,8 @@
 //   BOOKS_PER_MONTH (optional) new books per person per month, default 5
 
 const CLIENT_ID = "489478449653-b5du0muci7lj8sscrinkt7ag2g9trrpf.apps.googleusercontent.com";
+// Only this account can open the stats page
+const OWNER = "sayhellotosilva@gmail.com";
 // Voices Remagery offers: three per book language (see js/config.js)
 const VOICES = ["en-GB-Wavenet-F", "en-US-Wavenet-F", "en-GB-Wavenet-B",
   "pt-BR-Wavenet-A", "pt-BR-Wavenet-C", "pt-BR-Wavenet-B",
@@ -45,6 +47,25 @@ async function readPass(pass, env) {
 
 /// Who is asking: a valid voice pass, or a Google sign-in checked with Google.
 /// Returns { email, pass } (pass is new when it came from a Google sign-in) or null.
+// ---------- Stats: anonymous monthly totals only ----------
+// How many people used Remagery this month, which countries they're in, PDFs started and voice used.
+// A person is counted once a month with a one-way code of their email (it can't be turned back into it),
+// and those codes are removed after about 70 days. No names, no titles, no listening history.
+const STATS_TTL = 60 * 60 * 24 * 70;
+async function bumpStats(env, month, change) {
+  const k = `stats:${month}`;
+  let st = { users: 0, countries: {}, pdfs: 0 };
+  try { st = Object.assign(st, JSON.parse((await env.USAGE.get(k)) || "{}")); } catch (e) {}
+  change(st);
+  await env.USAGE.put(k, JSON.stringify(st));
+}
+async function countPerson(env, month, email, country) {
+  const k = `seen:${month}:${await sha("remagery-stats:" + email)}`;
+  if (await env.USAGE.get(k)) return;
+  await env.USAGE.put(k, "1", { expirationTtl: STATS_TTL });
+  await bumpStats(env, month, st => { st.users++; st.countries[country] = (st.countries[country] || 0) + 1; });
+}
+
 async function who(body, env) {
   const fromPass = await readPass(body.pass, env);
   if (fromPass) return { email: fromPass };
@@ -96,6 +117,32 @@ export default {
     const everKey = email => `ever:${email}`;
     const readList = async k => { try { return JSON.parse((await env.USAGE.get(k)) || "[]"); } catch (e) { return []; } };
 
+    const country = (request.cf && request.cf.country) || "??";
+
+    // The app says hello once a day when it opens, so people who only listen are counted too
+    if (path.endsWith("/hello") && request.method === "POST") {
+      const id = await who(body, env);
+      if (!id) return json({ ok: false }, 401);
+      await countPerson(env, month, id.email, country);
+      return json({ ok: true, email: id.email, pass: id.pass });
+    }
+
+    // Your stats page (only your account)
+    if (path.endsWith("/stats") && request.method === "POST") {
+      const id = await who(body, env);
+      if (!id || id.email !== OWNER) return json({ error: "Not allowed." }, 403);
+      const months = [];
+      const keys = (await env.USAGE.list({ prefix: "stats:" })).keys.map(k => k.name).sort().reverse().slice(0, 12);
+      for (const k of keys) {
+        const m = k.slice(6);
+        let st = {};
+        try { st = JSON.parse((await env.USAGE.get(k)) || "{}"); } catch (e) {}
+        months.push({ month: m, users: st.users || 0, countries: st.countries || {}, pdfs: st.pdfs || 0,
+          characters: Number((await env.USAGE.get(`chars:${m}`)) || 0) });
+      }
+      return json({ months, limit, bookLimit, email: id.email, pass: id.pass });
+    }
+
     if (path.endsWith("/usage")) {
       const out = { month, used, limit, bookLimit };
       const id = request.method === "POST" ? await who(body, env) : null;
@@ -114,6 +161,7 @@ export default {
       const id = await who(body, env);
       if (!id) return json({ error: "Sign in with Google again to make the voice.", kind: "auth" }, 401);
       const email = id.email;
+      await countPerson(env, month, email, country);
 
       if (used + ssml.length > limit) {
         return json({ error: "This month's free voice allowance is used up for everyone. It starts again on the 1st.", kind: "limit" }, 429);
@@ -128,6 +176,7 @@ export default {
             return json({ error: `You've started ${bookLimit} new PDFs this month. New PDFs get a voice again from the 1st. PDFs you've already started keep playing.`, kind: "personal" }, 429);
           }
           books.push(bookId); ever.push(bookId);
+          await bumpStats(env, month, st => { st.pdfs++; });
           await env.USAGE.put(monthKey(email), JSON.stringify(books), { expirationTtl: 60 * 60 * 24 * 70 });
           await env.USAGE.put(everKey(email), JSON.stringify(ever.slice(-2000)));
         }

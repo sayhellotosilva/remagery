@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Remagery Stats</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#D8D8D5">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="app.css">
+<style>
+  html, body { height: auto; }
+  .stats { max-width: 640px; margin: 0 auto; padding-top: calc(28px + env(safe-area-inset-top, 0px)); padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 20px; }
+  .stats a { color: var(--ink); text-decoration: none; }
+  .stats h1 { font-size: clamp(34px, 10vw, 52px); }
+  .big { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; padding: 20px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .big b { display: block; font-size: 56px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .rows { display: grid; }
+  .row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); font-size: 16px; }
+  .row .bar { grid-column: 1 / -1; height: 3px; background: var(--line); }
+  .row .bar i { display: block; height: 100%; background: var(--ink); }
+  .note { color: var(--soft); font-size: 14px; line-height: 1.45; }
+</style>
+</head>
+<body>
+<main class="stats gutter">
+  <a class="mono" href="./">← Remagery</a>
+  <h1 class="title">Stats.</h1>
+  <div id="out"><p class="mono soft">Loading…</p></div>
+  <p class="note">Anonymous totals only: how many people opened Remagery each month, their country, PDFs started and voice used. No names, emails, titles or listening history.</p>
+</main>
+<script type="module">
+import { stats } from "./js/voice.js";
+const out = document.getElementById("out");
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const names = (() => { try { return new Intl.DisplayNames(["en"], { type: "region" }); } catch (e) { return null; } })();
+const country = c => (c === "??" ? "Unknown" : (names && names.of(c)) || c);
+const monthName = m => new Date(m + "-01T12:00:00").toLocaleString("en", { month: "long", year: "numeric" });
+try {
+  const j = await stats();
+  if (!j.months.length) { out.innerHTML = `<p class="mono soft">No numbers yet. They start from the next time someone opens Remagery.</p>`; }
+  else {
+    const [now, ...before] = j.months;
+    const cs = Object.entries(now.countries).sort((a, b) => b[1] - a[1]);
+    const max = Math.max(1, ...cs.map(c => c[1]));
+    out.innerHTML = `
+      <p class="mono soft">${esc(monthName(now.month))}</p>
+      <div class="big">
+        <div><b>${now.users}</b><span class="mono soft">${now.users === 1 ? "Person" : "People"}</span></div>
+        <div><b>${cs.length}</b><span class="mono soft">${cs.length === 1 ? "Country" : "Countries"}</span></div>
+        <div><b>${now.pdfs}</b><span class="mono soft">PDFs started</span></div>
+        <div><b>${Math.round(now.characters / j.limit * 100)}%</b><span class="mono soft">Free voice used</span></div>
+      </div>
+      <div class="label mono" style="padding:8px 0 0">Where people are</div>
+      <div class="rows">${cs.map(([c, n]) => `<div class="row"><span>${esc(country(c))}</span><span class="mono">${n}</span><div class="bar"><i style="width:${n / max * 100}%"></i></div></div>`).join("") || `<p class="mono soft">Nobody yet.</p>`}</div>
+      ${before.length ? `<div class="label mono" style="padding:18px 0 0">Earlier months</div>
+      <div class="rows">${before.map(m => `<div class="row"><span>${esc(monthName(m.month))}</span><span class="mono">${m.users} ${m.users === 1 ? "person" : "people"} · ${Object.keys(m.countries).length} ${Object.keys(m.countries).length === 1 ? "country" : "countries"} · ${m.pdfs} ${m.pdfs === 1 ? "PDF" : "PDFs"}</span></div>`).join("")}</div>` : ""}`;
+  }
+} catch (e) {
+  out.innerHTML = `<p class="mono soft">${esc(e.message)}</p>`;
+}
+</script>
+</body>
+</html>

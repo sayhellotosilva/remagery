@@ -158,6 +158,35 @@ export async function hasChapterAudio(bookId, ci, voice) {
   return !!(await db.get("audio", `${bookId}/${ci}/${voice}`));
 }
 
+/// Tells the voice server "someone used Remagery today" (once a day), for the anonymous monthly totals.
+export async function hello() {
+  if (!VOICE_SERVER) return;
+  const t = token(), pass = getPass();
+  if (!t && !pass) return;
+  const day = new Date().toISOString().slice(0, 10);
+  try { if (localStorage.getItem("remagery.hello") === day) return; } catch (e) {}
+  try {
+    const r = await fetch(VOICE_SERVER.replace(/\/$/, "") + "/hello", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: t || "", pass }),
+    });
+    const j = r.ok ? await r.json() : null;
+    // An older voice server answers without counting: try again next time
+    if (j && j.email) { keepPass(j); try { localStorage.setItem("remagery.hello", day); } catch (e) {} }
+  } catch (e) {}
+}
+
+/// Your stats (only works for the owner's account).
+export async function stats() {
+  const r = await fetch(VOICE_SERVER.replace(/\/$/, "") + "/stats", {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: token() || "", pass: getPass() }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(r.status === 403 ? "Only Remagery's owner can see the stats." : (j.error || "The voice server didn't answer."));
+  if (!Array.isArray(j.months)) throw new Error("Paste the new voice server code into Cloudflare to see the stats.");
+  keepPass(j);
+  return j;
+}
+
 /// This month's use: everyone's characters, and your own new books (when signed in).
 export async function usage() {
   if (!VOICE_SERVER) return null;
