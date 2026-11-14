@@ -4,6 +4,7 @@ import { prefs, savePrefs, voiceFor, setVoice } from "./prefs.js";
 import { player } from "./player.js";
 import { makeBookFromPDF, Cancelled } from "./bookmaker.js";
 import { voicesFor, LANG_NAMES } from "./config.js";
+import { makeShareCard, booksThisMonth, SITE } from "./sharecard.js";
 import { hasVoiceServer, usage, sample, chapterAudio } from "./voice.js";
 import * as G from "./google.js";
 import { sync, onSync, syncStatus, syncError, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
@@ -223,7 +224,13 @@ function accountLine() {
   const tokenOK = !!G.token();
   const text = (st && st.length < 22 ? st : st ? "Syncing" : "") || (tokenOK ? "Synced" : "Tap to sync");
   const el = h(`<div id="acctSlot" class="acct"><button class="mono soft acct-btn">${esc(email)} · ${esc(text)}</button></div>`);
-  el.querySelector("button").onclick = () => {
+  // Share this month's books (only when there are some)
+  if (booksThisMonth(books).length) {
+    const sh = h(`<button class="mono acct-share" aria-label="Share the books you're reading this month">Share ↗</button>`);
+    sh.onclick = shareSheet;
+    el.appendChild(sh);
+  }
+  el.querySelector(".acct-btn").onclick = () => {
     if (!tokenOK) { G.signIn(); return; }
     if (!G.hasDrive()) {
       confirmDialog("Remagery can't use your Drive", "On Google's page, the box for Google Drive was left unticked. Sign in again and tick it, so Remagery can save your books in its own folder.", "Sign in again", () => G.signIn({ consent: true }));
@@ -710,6 +717,38 @@ function sleepSheet() {
       row.onclick = () => { player.setSleep(mode); close(); };
       wrap.appendChild(row);
     }
+    return wrap;
+  });
+}
+
+// ---------- Share card ----------
+/// Shows this month's share card, with a button that opens the phone's share sheet.
+function shareSheet() {
+  openSheet("Share", (close) => {
+    const wrap = h(`<div class="share-wrap">
+      <div class="share-preview"><span class="mono soft">Making your card…</span></div>
+      <p class="help">Your books this month, ready for Instagram Stories, WhatsApp or X.</p>
+      <button class="add share-go" disabled>SHARE</button>
+    </div>`);
+    const go = wrap.querySelector(".share-go");
+    let file = null, url = null;
+    makeShareCard(booksThisMonth(books), coverURL, coverTilt).then(blob => {
+      const month = new Date().toLocaleString("en", { month: "long" }).toLowerCase();
+      file = new File([blob], `remagery-${month}.png`, { type: "image/png" });
+      url = URL.createObjectURL(blob);
+      wrap.querySelector(".share-preview").innerHTML = `<img alt="Your books this month" src="${url}">`;
+      go.disabled = false;
+    }).catch(() => { wrap.querySelector(".share-preview").innerHTML = `<span class="mono soft">Couldn't make the card. Try again.</span>`; });
+    // The share sheet must open straight from the tap, so the picture is made first
+    go.onclick = async () => {
+      if (!file) return;
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try { await navigator.share({ files: [file], text: "https://" + SITE }); } catch (e) {}
+      } else {
+        const a = document.createElement("a");
+        a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+      }
+    };
     return wrap;
   });
 }
