@@ -153,7 +153,7 @@ function welcomeView() {
     <div class="gate-bottom">
       <button class="add" data-act="signin"><span class="g-dot">G</span>Sign in with Google</button>
       <p class="help" style="text-align:center;margin-top:12px">Google will ask to let Remagery use its own folder in your Drive. Tick the box and tap Continue.</p>
-      <p class="help" style="text-align:center;margin-top:10px"><a class="mono" style="color:inherit" href="privacy.html">Privacy</a></p>
+      <p class="help" style="text-align:center;margin-top:10px"><a class="mono" style="color:inherit" href="privacy">Privacy</a></p>
     </div>
   </main>`);
 }
@@ -952,10 +952,10 @@ function settingsSheet() {
         ${G.account() ? `<p class="help">Signed in as ${esc(G.account())}. Your PDFs, progress and bookmarks are kept in the Remagery folder in your Google Drive, with the voice of each chapter once it’s made.</p>
           <div class="btn-row"><a class="tag line" id="driveLink" href="https://drive.google.com" target="_blank" rel="noopener">Open Remagery folder</a><button class="tag line" id="syncNow">Sync now</button><button class="tag line" id="signOut">Sign out</button></div>`
         : `<p class="help">Sign in to keep your PDFs and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}` : ""}
-      ${G.account() === "sayhellotosilva@gmail.com" ? `<p class="help" style="margin-top:6px"><a class="mono" style="color:inherit" href="stats.html">Stats</a></p>` : ""}
+      ${G.account() === "sayhellotosilva@gmail.com" ? `<p class="help" style="margin-top:6px"><a class="mono" style="color:inherit" href="stats">Stats</a></p>` : ""}
       <div class="label">On your Home Screen</div>
       <p class="help">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen and keeps your PDFs safe.</p>
-      <p class="help" style="margin-top:18px"><a class="mono" style="color:inherit" href="privacy.html">Privacy</a></p>
+      <p class="help" style="margin-top:18px"><a class="mono" style="color:inherit" href="privacy">Privacy</a></p>
     </div>`);
     const sampleBox = wrap.querySelector("#sample");
     sampleBox.style.fontSize = prefs.textSize + "px";
@@ -1108,9 +1108,9 @@ async function startGoogle() {
   // Coming from the Stats page: renew the sign-in if needed, then go back there
   const wantStats = new URLSearchParams(location.search).has("stats") || (back && back.intent === "stats");
   if (wantStats) {
-    if (G.token()) { location.replace("stats.html"); return; }
+    if (G.token()) { location.replace("stats"); return; }
     if (!back) { G.signIn({ silent: true, intent: "stats" }); return; }
-    location.replace("stats.html?again"); return;
+    location.replace("stats?again"); return;
   }
   if (back && back.ok) {
     renderLibrary();
