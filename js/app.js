@@ -176,8 +176,8 @@ async function renderLibrary() {
       <div id="miniSlot"></div>
       <div class="dock-row">
         <button class="add" data-act="add" aria-label="Add a book">${I.plus}ADD BOOK</button>
-        <button class="aa" data-act="share" aria-label="Share the books you're reading this month">${I.share}</button>
         <button class="aa" data-act="settings" aria-label="Settings">Aa</button>
+        <button class="aa" data-act="share" aria-label="Share the books you're reading this month">${I.share}</button>
       </div>
     </div>
   </main>`);
