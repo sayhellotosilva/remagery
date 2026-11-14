@@ -68,6 +68,11 @@ async function speak(ssml, voice, bookId = "") {
   if (r.status === 429) throw new VoiceError(j.error || "This month's free voice allowance is used up. It starts again on the 1st.", j.kind || "limit");
   if (!r.ok) throw new VoiceError(j.error || "The voice server didn't answer. Try again in a moment.", "server");
   keepPass(j);
+  // An older voice server only knows the English voices and would read other languages with an
+  // English voice. Stop here, so no wrong audio is saved.
+  if (!voice.startsWith("en") && j.voice !== voice) {
+    throw new VoiceError("Portuguese and Spanish voices need the voice server update in Cloudflare. English books keep working.", "server");
+  }
   return j;
 }
 

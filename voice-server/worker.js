@@ -149,7 +149,7 @@ export default {
       }
       const out = await g.json();
       await env.USAGE.put(key, String(used + ssml.length), { expirationTtl: 60 * 60 * 24 * 70 });
-      return json({ audio: out.audioContent, timepoints: out.timepoints || [], used: used + ssml.length, limit, email, pass: id.pass });
+      return json({ audio: out.audioContent, timepoints: out.timepoints || [], used: used + ssml.length, limit, email, pass: id.pass, voice });
     }
 
     return json({ ok: true, app: "Remagery voice server" });
