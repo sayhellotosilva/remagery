@@ -370,7 +370,7 @@ async function startMaking(file) {
     }
   } catch (e) {
     await Promise.all([db.delPrefix("files", id + "/"), db.del("packages", id)]).catch(() => {});
-    if (!(e instanceof Cancelled)) alertDialog("Couldn't make the book", e.message || "Something went wrong.");
+    if (!(e instanceof Cancelled)) alertDialog("Couldn't prepare the PDF", e.message || "Something went wrong.");
   }
   making.splice(making.indexOf(job), 1);
   renderLibrary();
