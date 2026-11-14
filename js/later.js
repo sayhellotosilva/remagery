@@ -21,6 +21,14 @@ export function addLater(title, author = "") {
   return item;
 }
 
+export function updateLater(id, title, author = "") {
+  const list = load();
+  const x = list.find(i => i.id === id);
+  if (!x) return;
+  x.title = title.trim(); x.author = author.trim(); x.updatedAt = Date.now();
+  save(list);
+}
+
 export function removeLater(id) {
   const list = load();
   const x = list.find(i => i.id === id);

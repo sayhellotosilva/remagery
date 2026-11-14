@@ -5,7 +5,7 @@ import { player } from "./player.js";
 import { makeBookFromPDF, Cancelled } from "./bookmaker.js";
 import { voicesFor, LANG_NAMES } from "./config.js";
 import { makeShareCard, booksThisMonth, SITE } from "./sharecard.js";
-import { laterList, addLater, removeLater } from "./later.js";
+import { laterList, addLater, removeLater, updateLater } from "./later.js";
 import { hasVoiceServer, usage, sample, chapterAudio } from "./voice.js";
 import * as G from "./google.js";
 import { sync, onSync, syncStatus, syncError, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
@@ -216,7 +216,7 @@ function laterView() {
     const sq = h(`<button class="later-sq" style="transform:rotate(${coverTilt(it.id)}deg)" aria-label="${esc(it.title)}${it.author ? ", " + esc(it.author) : ""}. Tap to add its PDF">
       <span class="later-title" style="font-size:${laterSize(it.title)}px">${esc(it.title)}</span>${it.author ? `<span class="later-author mono">${esc(it.author)}</span>` : ""}</button>`);
     sq.addEventListener("click", () => { pendingLater = { id: it.id, at: Date.now() }; addSheet(it.title); });
-    longPress(sq, () => confirmDialog("Remove from Later?", `“${it.title}” is taken off your Later list.`, "Remove", () => { removeLater(it.id); scheduleSync(2000); renderLibrary(); }));
+    longPress(sq, () => editLaterSheet(it));
     grid.appendChild(sq);
   }
   el.querySelector("#miniSlot").replaceWith(miniPlayer());
@@ -227,6 +227,65 @@ function laterView() {
 function laterSize(t) {
   const longest = Math.max(...t.split(/\s+/).map(w => w.length));
   return longest > 12 ? 15 : longest > 9 ? 17 : 20;
+}
+
+/// Touch and hold a cover: rename it, or remove it.
+function editBookSheet(b) {
+  openSheet("Edit", close => {
+    const wrap = h(`<form class="later-form">
+      <label class="label" for="et">Name</label>
+      <input id="et" class="field" type="text" autocomplete="off" autocapitalize="words" required>
+      <button class="add" type="submit" style="margin-top:18px">SAVE</button>
+      <button class="tag line remove-btn" type="button">Remove this PDF</button>
+    </form>`);
+    const input = wrap.querySelector("#et");
+    input.value = b.title || "";
+    wrap.onsubmit = async e => {
+      e.preventDefault();
+      const t = input.value.trim();
+      if (!t) { input.focus(); return; }
+      const rec = (await db.get("books", b.id)) || b;
+      rec.title = t; rec.updatedAt = Date.now();
+      await db.put("books", rec.id, rec);
+      if (player.record && player.record.id === rec.id) { player.record.title = t; player.emit("state"); }
+      scheduleSync(2000);
+      close(); renderLibrary();
+    };
+    wrap.querySelector(".remove-btn").onclick = () => { close(); confirmDialog("Remove this PDF?",
+      b.drive ? "It's removed from this phone and its folder goes to the bin in your Google Drive. Your original PDF isn't touched." : "Its images and voice are deleted from this phone.",
+      "Remove", async () => {
+        if (player.record && player.record.id === b.id) player.close();
+        await removeBook(b);
+        renderLibrary();
+      }); };
+    return wrap;
+  });
+}
+
+/// Touch and hold a Later square: change its title or author, or remove it.
+function editLaterSheet(it) {
+  openSheet("Edit", close => {
+    const wrap = h(`<form class="later-form">
+      <label class="label" for="lt">Title</label>
+      <input id="lt" class="field" type="text" autocomplete="off" autocapitalize="words" required>
+      <label class="label" for="la">Author (if you know it)</label>
+      <input id="la" class="field" type="text" autocomplete="off" autocapitalize="words">
+      <button class="add" type="submit" style="margin-top:18px">SAVE</button>
+      <button class="tag line remove-btn" type="button">Remove from Later</button>
+    </form>`);
+    wrap.querySelector("#lt").value = it.title || "";
+    wrap.querySelector("#la").value = it.author || "";
+    wrap.onsubmit = e => {
+      e.preventDefault();
+      const t = wrap.querySelector("#lt").value.trim();
+      if (!t) { wrap.querySelector("#lt").focus(); return; }
+      updateLater(it.id, t, wrap.querySelector("#la").value);
+      scheduleSync(2000);
+      close(); renderLibrary();
+    };
+    wrap.querySelector(".remove-btn").onclick = () => { removeLater(it.id); scheduleSync(2000); close(); renderLibrary(); };
+    return wrap;
+  });
 }
 
 function addLaterSheet() {
@@ -300,13 +359,7 @@ async function renderLibrary() {
       ${(b.progress || b.finished) ? `<div class="bar"><i style="width:${b.finished ? 100 : Math.round((b.percent || 0) * 100)}%"></i></div>` : ""}</div></button>`);
     coverURL(b).then(u => { if (u) card.querySelector(".titlecard").replaceWith(h(`<img alt="" src="${u}">`)); });
     card.addEventListener("click", () => openBook(b));
-    longPress(card, () => confirmDialog("Remove this PDF?",
-      b.drive ? "It's removed from this phone and its folder goes to the bin in your Google Drive. Your original PDF isn't touched." : "Its images and voice are deleted from this phone.",
-      "Remove", async () => {
-        if (player.record && player.record.id === b.id) player.close();
-        await removeBook(b);
-        renderLibrary();
-      }));
+    longPress(card, () => editBookSheet(b));
     grid.appendChild(card);
   }
   el.querySelector("#miniSlot").replaceWith(miniPlayer());

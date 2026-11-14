@@ -246,3 +246,4 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 /* No extra scrolling: pages only scroll when there's more to see, with no bounce past the ends */
 html { overscroll-behavior: none; }
 .library { box-sizing: border-box; }
+.remove-btn { justify-self: center; margin-top: 10px; }
