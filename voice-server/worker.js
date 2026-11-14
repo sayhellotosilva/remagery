@@ -13,8 +13,10 @@
 //   BOOKS_PER_MONTH (optional) new books per person per month, default 5
 
 const CLIENT_ID = "489478449653-b5du0muci7lj8sscrinkt7ag2g9trrpf.apps.googleusercontent.com";
-const VOICES = ["en-GB-Wavenet-A", "en-GB-Wavenet-B", "en-GB-Wavenet-C", "en-GB-Wavenet-D", "en-GB-Wavenet-F",
-  "en-US-Wavenet-F", "en-US-Wavenet-H"];
+// Voices Remagery offers: three per book language (see js/config.js)
+const VOICES = ["en-GB-Wavenet-F", "en-US-Wavenet-F", "en-GB-Wavenet-B",
+  "pt-BR-Wavenet-A", "pt-BR-Wavenet-C", "pt-BR-Wavenet-B",
+  "es-ES-Wavenet-F", "es-US-Wavenet-A", "es-ES-Wavenet-E"];
 const SAMPLE_MAX = 400; // a voice sample in Settings (no book) may only be this long
 
 async function sha(s) {
