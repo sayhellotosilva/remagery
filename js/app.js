@@ -225,7 +225,7 @@ function accountLine() {
   const st = syncStatus();
   const tokenOK = !!G.token();
   const text = (st && st.length < 22 ? st : st ? "Syncing" : "") || (tokenOK ? "Synced" : "Tap to sync");
-  const el = h(`<div id="acctSlot" class="acct"><button class="mono soft acct-btn">${esc(email)} · ${esc(text)}</button></div>`);
+  const el = h(`<div id="acctSlot" class="acct"><button class="mono soft acct-btn"><span class="acct-email">${esc(email)}</span><span class="acct-state">${esc(text)}</span></button></div>`);
   el.querySelector(".acct-btn").onclick = () => {
     if (!tokenOK) { G.signIn(); return; }
     if (!G.hasDrive()) {

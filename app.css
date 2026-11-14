@@ -222,3 +222,7 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .share-preview img { width: auto; max-width: 100%; max-height: 58vh; border-radius: 14px; box-shadow: 0 0 0 1px var(--line); }
 .share-go:disabled { opacity: .4; }
 .aa svg { display: block; margin: 0 auto; }
+/* Account line: email on the left, sync state on the right margin */
+.acct-btn { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; }
+.acct-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.acct-state { flex: none; }
