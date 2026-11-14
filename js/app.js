@@ -1095,6 +1095,13 @@ setTimeout(() => { if (!needsHomeScreen && G.account()) hello(); }, 4000);
 async function startGoogle() {
   if (!G.googleReady()) return;
   const back = await G.handleReturn();
+  // Coming from the Stats page: renew the sign-in if needed, then go back there
+  const wantStats = new URLSearchParams(location.search).has("stats") || (back && back.intent === "stats");
+  if (wantStats) {
+    if (G.token()) { location.replace("stats.html"); return; }
+    if (!back) { G.signIn({ silent: true, intent: "stats" }); return; }
+    location.replace("stats.html?again"); return;
+  }
   if (back && back.ok) {
     renderLibrary();
     await sync();

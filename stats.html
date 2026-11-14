@@ -38,16 +38,9 @@ const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;"
 const names = (() => { try { return new Intl.DisplayNames(["en"], { type: "region" }); } catch (e) { return null; } })();
 const country = c => (c === "??" ? "Unknown" : (names && names.of(c)) || c);
 const monthName = m => new Date(m + "-01T12:00:00").toLocaleString("en", { month: "long", year: "numeric" });
-// Google's sign-in lasts an hour: renew it quietly first, so the voice server knows it's you
-await G.handleReturn();
-let tried = false;
-try { tried = sessionStorage.getItem("remagery.statsSignin") === "1"; } catch (e) {}
-if (!G.token() && G.account() === OWNER && !tried) {
-  try { sessionStorage.setItem("remagery.statsSignin", "1"); } catch (e) {}
-  G.signIn({ silent: true });
-  await new Promise(() => {}); // leaving for Google; the page opens again when it comes back
-}
-try { sessionStorage.removeItem("remagery.statsSignin"); } catch (e) {}
+// Google's sign-in lasts an hour: if it has run out, Remagery renews it quietly and comes back here
+const again = new URLSearchParams(location.search).has("again");
+if (!G.token() && G.account() === OWNER && !again) { location.replace("./?stats"); await new Promise(() => {}); }
 try {
   const j = await stats();
   if (!j.months.length) { out.innerHTML = `<p class="mono soft">No numbers yet. They start from the next time someone opens Remagery.</p>`; }
