@@ -1085,7 +1085,17 @@ for (const ev of ["gesturestart", "gesturechange", "gestureend"]) document.addEv
 
 // ---------- Start ----------
 // Keep a copy of the app on the phone so it opens without internet
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  const hadOne = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").then(r => r.update()).catch(() => {});
+  // A new version was just saved: switch to it straight away (unless something is playing or being made)
+  let reloaded = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!hadOne || reloaded) return;
+    const busy = player.isPlaying || making.length || document.querySelector(".sheet-back");
+    if (!busy) { reloaded = true; location.reload(); }
+  });
+}
 applyTheme();
 renderLibrary();
 if (!needsHomeScreen) startGoogle();
