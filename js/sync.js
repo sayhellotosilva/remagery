@@ -68,7 +68,7 @@ export async function uploadBook(rec, onProgress) {
 
 /// Brings a book from Drive onto this phone.
 export async function downloadBook(rec, onProgress) {
-  if (!rec.drive || !rec.drive.bundleId) throw new Error("This book isn't in your Google Drive.");
+  if (!rec.drive || !rec.drive.bundleId) throw new Error("This PDF isn't in your Google Drive.");
   const blob = await G.download(rec.drive.bundleId, onProgress);
   const zip = await window.JSZip.loadAsync(blob);
   const pkg = JSON.parse(await zip.file("book.json").async("string"));

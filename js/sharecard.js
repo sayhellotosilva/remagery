@@ -89,7 +89,7 @@ export async function makeShareCard(books, coverURL, tilt, now = new Date()) {
   // Top: "Reading in" … "4 books"
   const n = books.length;
   mono(ctx, "Reading in", pad, 150);
-  mono(ctx, `${n} ${n === 1 ? "book" : "books"}`, W - pad, 150, { align: "right" });
+  mono(ctx, `${n} ${n === 1 ? "PDF" : "PDFs"}`, W - pad, 150, { align: "right" });
 
   // The month, as big as fits
   const month = now.toLocaleString("en", { month: "long" }).toUpperCase() + ".";

@@ -125,7 +125,7 @@ export default {
         if (!ever.includes(bookId)) {
           const books = await readList(monthKey(email));
           if (books.length >= bookLimit) {
-            return json({ error: `You've started ${bookLimit} new books this month. New books get a voice again from the 1st. Books you've already started keep playing.`, kind: "personal" }, 429);
+            return json({ error: `You've started ${bookLimit} new PDFs this month. New PDFs get a voice again from the 1st. PDFs you've already started keep playing.`, kind: "personal" }, 429);
           }
           books.push(bookId); ever.push(bookId);
           await env.USAGE.put(monthKey(email), JSON.stringify(books), { expirationTtl: 60 * 60 * 24 * 70 });

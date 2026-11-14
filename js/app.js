@@ -127,7 +127,7 @@ function renderGuide() {
     ${top ? `<div class="pointer top mono soft">Start here ↗</div>` : ""}
     <div class="brand"><img class="app-icon" alt="" src="icon-180.png"><span class="mono soft">Remagery</span></div>
     <h1 class="title gate-title">Put Remagery on your Home Screen.</h1>
-    <p class="gate-text">On iPhone, Remagery works as an app. It keeps reading when the phone is locked, works offline, and keeps your books in one place.</p>
+    <p class="gate-text">On iPhone, Remagery works as an app. It keeps reading when the phone is locked, works offline, and keeps your PDFs in one place.</p>
     <hr class="hair">
     <div class="steps">
       <div class="step"><span class="mono soft">01</span><span>${first}</span></div>
@@ -144,9 +144,9 @@ function welcomeView() {
   return h(`<main class="gate gutter">
     <span class="mono soft">Welcome</span>
     <h1 class="title welcome-title">Remagery.</h1>
-    <p class="gate-text">Design books read aloud, with each image shown when the text talks about it.</p>
+    <p class="gate-text">Design PDFs read aloud, with each image shown when the text talks about it.</p>
     <div class="facts">
-      <div class="fact"><span class="mono soft">Your library</span><span>Books and progress live in a Remagery folder in your own Google Drive.</span></div>
+      <div class="fact"><span class="mono soft">Your library</span><span>PDFs and progress live in a Remagery folder in your own Google Drive.</span></div>
       <div class="fact"><span class="mono soft">Your privacy</span><span>Remagery only sees the files it makes and the PDFs you pick.</span></div>
     </div>
     <div class="gate-bottom">
@@ -175,19 +175,19 @@ async function renderLibrary() {
     <div class="dock gutter">
       <div id="miniSlot"></div>
       <div class="dock-row">
-        <button class="add" data-act="add" aria-label="Add a book">${I.plus}ADD BOOK</button>
+        <button class="add" data-act="add" aria-label="Add a PDF">${I.plus}ADD PDF</button>
         <button class="aa" data-act="settings" aria-label="Settings">Aa</button>
-        <button class="aa" data-act="share" aria-label="Share the books you're reading this month">${I.share}</button>
+        <button class="aa" data-act="share" aria-label="Share the PDFs you're reading this month">${I.share}</button>
       </div>
     </div>
   </main>`);
   const grid = el.querySelector("#grid");
   if (!books.length && !making.length) {
     grid.replaceWith(h(`<div class="empty"><hr class="hair">
-      ${G.googleReady() && !G.account() ? `<div class="step"><span class="mono">01</span><span>Sign in with Google. Your books and progress are kept in a Remagery folder in your Google Drive.</span></div>` : ""}
-      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "02" : "01"}</span><span>Tap Add book and choose a book's PDF, from Google Drive or this phone.</span></div>
+      ${G.googleReady() && !G.account() ? `<div class="step"><span class="mono">01</span><span>Sign in with Google. Your PDFs and progress are kept in a Remagery folder in your Google Drive.</span></div>` : ""}
+      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "02" : "01"}</span><span>Tap Add PDF and choose a PDF, from Google Drive or this phone.</span></div>
       <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "03" : "02"}</span><span>Remagery gets it ready, voice included, in a minute or two. Keep this page open while it works.</span></div>
-      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "04" : "03"}</span><span>Tap the book. Images appear as they're mentioned. Read shows the text.</span></div>
+      <div class="step"><span class="mono">${G.googleReady() && !G.account() ? "04" : "03"}</span><span>Tap the PDF. Images appear as they're mentioned. Read shows the text.</span></div>
     </div>`));
   }
   for (const job of making) grid.appendChild(makingCard(job));
@@ -199,7 +199,7 @@ async function renderLibrary() {
       ${(b.progress || b.finished) ? `<div class="bar"><i style="width:${b.finished ? 100 : Math.round((b.percent || 0) * 100)}%"></i></div>` : ""}</div></button>`);
     coverURL(b).then(u => { if (u) card.querySelector(".titlecard").replaceWith(h(`<img alt="" src="${u}">`)); });
     card.addEventListener("click", () => openBook(b));
-    longPress(card, () => confirmDialog("Remove this book?",
+    longPress(card, () => confirmDialog("Remove this PDF?",
       b.drive ? "It's removed from this phone and its folder goes to the bin in your Google Drive. Your original PDF isn't touched." : "Its images and voice are deleted from this phone.",
       "Remove", async () => {
         if (player.record && player.record.id === b.id) player.close();
@@ -219,7 +219,7 @@ function accountLine() {
   if (!G.googleReady()) return h(`<div id="acctSlot" hidden></div>`);
   const email = G.account();
   if (!email) {
-    const el = h(`<div id="acctSlot" class="acct"><button class="tag" data-act="signin">Sign in with Google</button><span class="mono soft">Keep your books in your Google Drive</span></div>`);
+    const el = h(`<div id="acctSlot" class="acct"><button class="tag" data-act="signin">Sign in with Google</button><span class="mono soft">Keep your PDFs in your Google Drive</span></div>`);
     return el;
   }
   const st = syncStatus();
@@ -229,7 +229,7 @@ function accountLine() {
   el.querySelector(".acct-btn").onclick = () => {
     if (!tokenOK) { G.signIn(); return; }
     if (!G.hasDrive()) {
-      confirmDialog("Remagery can't use your Drive", "On Google's page, the box for Google Drive was left unticked. Sign in again and tick it, so Remagery can save your books in its own folder.", "Sign in again", () => G.signIn({ consent: true }));
+      confirmDialog("Remagery can't use your Drive", "On Google's page, the box for Google Drive was left unticked. Sign in again and tick it, so Remagery can save your PDFs in its own folder.", "Sign in again", () => G.signIn({ consent: true }));
       return;
     }
     if (st && syncError()) {
@@ -244,14 +244,14 @@ function refreshAccount() { const a = libraryEl && libraryEl.querySelector("#acc
 
 function addSheet() {
   if (!G.googleReady()) { picker.click(); return; }
-  openSheet("Add a book", close => {
+  openSheet("Add a PDF", close => {
     const wrap = h(`<div class="options">
       <button class="opt add-opt" data-src="drive"><span><span class="opt-title">From Google Drive</span><span class="opt-sub">Choose a PDF in your Drive</span></span></button>
       <button class="opt add-opt" data-src="phone"><span><span class="opt-title">From this phone</span><span class="opt-sub">Files, iCloud, Downloads</span></span></button>
     </div>`);
     wrap.querySelector('[data-src="phone"]').onclick = () => { close(); picker.click(); };
     wrap.querySelector('[data-src="drive"]').onclick = () => { close(); addFromDrive(); };
-    const note = h(`<p class="help" style="margin-top:14px">${G.account() ? "Finished books are saved in the Remagery folder in your Google Drive." : "You'll sign in with Google first. Finished books are saved in a Remagery folder in your Google Drive."}</p>`);
+    const note = h(`<p class="help" style="margin-top:14px">${G.account() ? "Finished PDFs are saved in the Remagery folder in your Google Drive." : "You'll sign in with Google first. Finished PDFs are saved in a Remagery folder in your Google Drive."}</p>`);
     const box = document.createElement("div"); box.append(wrap, note);
     return box;
   });
@@ -272,7 +272,7 @@ function makingCard(job) {
     <span class="mono soft status">${esc(job.status)} · ${Math.round(job.progress * 100)}%</span></button>`);
   if (job.coverURL) card.querySelector(".titlecard").replaceWith(h(`<img alt="" src="${job.coverURL}">`));
   card.addEventListener("click", () => {
-    if (job.progress < 0.99) confirmDialog("Stop making this book?", "", "Stop", () => { job.cancelled = true; }, "Keep going");
+    if (job.progress < 0.99) confirmDialog("Stop making this PDF?", "", "Stop", () => { job.cancelled = true; }, "Keep going");
   });
   job.card = card;
   return card;
@@ -324,11 +324,11 @@ async function startMaking(file) {
   keepStorage();
   const id = uid();
   const isPDF = /\.pdf$/i.test(file.name) || /pdf/.test(file.type || "");
-  if (!isPDF) { alertDialog("That isn't a PDF", "Remagery makes books from PDF files. Choose the book's PDF."); return; }
+  if (!isPDF) { alertDialog("That isn't a PDF", "Remagery only reads PDF files. Choose a PDF."); return; }
   // Each person can start 5 new books a month: say so before doing the work
   const u = await usage();
   if (u && u.bookLimit && u.books >= u.bookLimit) {
-    alertDialog("No new books this month", `You've started ${u.bookLimit} new books this month. You can add more from the 1st. Books you've already started keep playing.`);
+    alertDialog("No new PDFs this month", `You've started ${u.bookLimit} new PDFs this month. You can add more from the 1st. PDFs you've already started keep playing.`);
     return;
   }
   const fromDrive = !!file.driveId;
@@ -412,7 +412,7 @@ async function openBook(b) {
     } catch (e) {
       making.splice(making.indexOf(job), 1);
       renderLibrary();
-      alertDialog("Couldn't download the book", e.status === 401 ? "Sign in again and try once more." : "Check your internet connection and try again.");
+      alertDialog("Couldn't download the PDF", e.status === 401 ? "Sign in again and try once more." : "Check your internet connection and try again.");
       return;
     }
     const pkg = await db.get("packages", b.id);
@@ -496,7 +496,7 @@ async function renderContent() {
       }
       rt.appendChild(row);
     });
-    if (!S.length) rt.innerHTML = `<p style="font-size:calc(var(--text) - 1px)">This book has no text for read-along. Tap Images to see the pictures.</p>`;
+    if (!S.length) rt.innerHTML = `<p style="font-size:calc(var(--text) - 1px)">This PDF has no text for read-along. Tap Images to see the pictures.</p>`;
     rt.addEventListener("click", e => {
       const k = e.target.dataset && e.target.dataset.k;
       if (k !== undefined) { player.unlock(); follow = true; playerEl.querySelector(".follow").hidden = true; player.jumpTo(+k); }
@@ -526,7 +526,7 @@ async function renderFigure() {
     if (img) img.onclick = () => showZoom(u);
   } else {
     const u = await coverURL(player.record);
-    slot.innerHTML = `<div class="coverwait fade-in">${u ? `<img alt="Book cover" src="${u}">` : ""}<hr class="hair">
+    slot.innerHTML = `<div class="coverwait fade-in">${u ? `<img alt="PDF cover" src="${u}">` : ""}<hr class="hair">
       <span class="mono soft">Images appear here when the narrator mentions them</span></div>`;
     const img = slot.querySelector("img");
     if (img) img.onclick = () => showZoom(u);
@@ -722,11 +722,11 @@ function sleepSheet() {
 function shareSheet() {
   openSheet("Share", (close) => {
     if (!booksThisMonth(books).length) {
-      return h(`<div class="share-wrap"><p class="help">Your card shows the books you read this month. Open a book and listen for a bit, then come back to share it.</p></div>`);
+      return h(`<div class="share-wrap"><p class="help">Your card shows the PDFs you read this month. Open a PDF and listen for a bit, then come back to share it.</p></div>`);
     }
     const wrap = h(`<div class="share-wrap">
       <div class="share-preview"><span class="mono soft">Making your card…</span></div>
-      <p class="help">Your books this month, ready for Instagram Stories, WhatsApp or X.</p>
+      <p class="help">Your PDFs this month, ready for Instagram Stories, WhatsApp or X.</p>
       <button class="add share-go" disabled>SHARE</button>
     </div>`);
     const go = wrap.querySelector(".share-go");
@@ -735,7 +735,7 @@ function shareSheet() {
       const month = new Date().toLocaleString("en", { month: "long" }).toLowerCase();
       file = new File([blob], `remagery-${month}.png`, { type: "image/png" });
       url = URL.createObjectURL(blob);
-      wrap.querySelector(".share-preview").innerHTML = `<img alt="Your books this month" src="${url}">`;
+      wrap.querySelector(".share-preview").innerHTML = `<img alt="Your PDFs this month" src="${url}">`;
       go.disabled = false;
     }).catch(() => { wrap.querySelector(".share-preview").innerHTML = `<span class="mono soft">Couldn't make the card. Try again.</span>`; });
     // The share sheet must open straight from the tap, so the picture is made first
@@ -774,11 +774,11 @@ function settingsSheet() {
       <div class="label">Speed</div>
       <div class="speed-grid">${speeds.map(s => `<button class="opt ${player.speed === s ? "on" : ""}" data-sp="${s}">${s}x</button>`).join("")}</div>
       ${G.googleReady() ? `<div class="label">Google account</div>
-        ${G.account() ? `<p class="help">Signed in as ${esc(G.account())}. Your books, progress and bookmarks are kept in the Remagery folder in your Google Drive, with the voice of each chapter once it’s made.</p>
+        ${G.account() ? `<p class="help">Signed in as ${esc(G.account())}. Your PDFs, progress and bookmarks are kept in the Remagery folder in your Google Drive, with the voice of each chapter once it’s made.</p>
           <div class="btn-row"><a class="tag line" id="driveLink" href="https://drive.google.com" target="_blank" rel="noopener">Open Remagery folder</a><button class="tag line" id="syncNow">Sync now</button><button class="tag line" id="signOut">Sign out</button></div>`
-        : `<p class="help">Sign in to keep your books and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}` : ""}
+        : `<p class="help">Sign in to keep your PDFs and progress in your Google Drive, and see them on any device.</p><div class="btn-row"><button class="tag" data-act="signin">Sign in with Google</button></div>`}` : ""}
       <div class="label">On your Home Screen</div>
-      <p class="help">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen and keeps your books safe.</p>
+      <p class="help">In Safari, tap Share, then Add to Home Screen. Remagery opens full screen and keeps your PDFs safe.</p>
       <p class="help" style="margin-top:18px"><a class="mono" style="color:inherit" href="privacy.html">Privacy</a></p>
     </div>`);
     const sampleBox = wrap.querySelector("#sample");
@@ -787,7 +787,7 @@ function settingsSheet() {
     wrap.querySelector("#tsize").oninput = e => { prefs.textSize = +e.target.value; savePrefs(); applyTheme(); sampleBox.style.fontSize = prefs.textSize + "px"; };
     wrap.querySelectorAll("[data-sp]").forEach(b => b.onclick = () => { player.speed = +b.dataset.sp; refill(); });
     const so = wrap.querySelector("#signOut");
-    if (so) so.onclick = () => confirmDialog("Sign out?", "Your books stay in your Google Drive and on this phone.", "Sign out", async () => { await G.signOut(); close(); renderLibrary(); });
+    if (so) so.onclick = () => confirmDialog("Sign out?", "Your PDFs stay in your Google Drive and on this phone.", "Sign out", async () => { await G.signOut(); close(); renderLibrary(); });
     const sn = wrap.querySelector("#syncNow");
     if (sn) sn.onclick = async () => { if (!G.token()) { G.signIn(); return; } sn.textContent = "Syncing…"; await sync(); sn.textContent = "Sync now"; };
     const dl = wrap.querySelector("#driveLink");
@@ -812,7 +812,7 @@ function settingsSheet() {
         const box = wrap.querySelector("#use");
         if (!u || !box) return;
         const pct = Math.min(100, u.used / u.limit * 100);
-        const mine = u.books != null ? `<p class="help">Your new books this month: ${u.books} of ${u.bookLimit}. More chapters of a book you've started are free.</p><div class="meter"><i style="width:${Math.min(100, u.books / u.bookLimit * 100)}%"></i></div>` : "";
+        const mine = u.books != null ? `<p class="help">Your new PDFs this month: ${u.books} of ${u.bookLimit}. More chapters of a PDF you've started are free.</p><div class="meter"><i style="width:${Math.min(100, u.books / u.bookLimit * 100)}%"></i></div>` : "";
         box.innerHTML = `${mine}<p class="help">Free voice this month, everyone together: ${(u.used / 1e6).toFixed(2)} of ${(u.limit / 1e6).toFixed(1)} million characters.</p><div class="meter"><i style="width:${pct}%"></i></div>`;
       });
     }
@@ -898,7 +898,7 @@ onSync(kind => {
   refreshAccount();
   if (kind === "error" && !G.hasDrive() && !askedDrive) {
     askedDrive = true;
-    confirmDialog("Allow Google Drive", "When you signed in, the Google Drive box was left unticked, so Remagery can't save your books. Sign in again and tick the box: Remagery only sees the files it makes and the ones you pick.", "Sign in again", () => G.signIn({ consent: true }));
+    confirmDialog("Allow Google Drive", "When you signed in, the Google Drive box was left unticked, so Remagery can't save your PDFs. Sign in again and tick the box: Remagery only sees the files it makes and the ones you pick.", "Sign in again", () => G.signIn({ consent: true }));
   }
   if (kind === "library" && !making.length) renderLibrary();
 });
