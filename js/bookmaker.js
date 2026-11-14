@@ -10,8 +10,60 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs
 
 export class Cancelled extends Error {}
 
-const SKIP_WORDS = ["contents", "notes", "endnotes", "index", "bibliography", "references",
-  "acknowledg", "copyright", "further reading", "credits", "colophon"];
+// ---------- Languages ----------
+// Each book's language is found from its text: English, Portuguese (Brazil) or Spanish.
+// The words below decide what isn't read (contents, index, notes…) and how abbreviations are said.
+const LANGS = {
+  en: {
+    skip: ["contents", "notes", "endnotes", "index", "bibliography", "references", "acknowledg",
+      "copyright", "further reading", "credits", "colophon"],
+    contents: ["contents"],
+    chapter: "chapter",
+    refs: "see |cf\\. ",
+    refWords: "fig|figs|figure|figures|p|pp|pl|plate|ch|chapter|note|n",
+    say: [["e.g.", "for example"], ["i.e.", "that is"], ["etc.", "and so on"], ["&", "and"], ["%", " percent"], ["cf.", "compare"]],
+  },
+  pt: {
+    skip: ["sumário", "índice", "notas", "bibliografia", "referências", "agradecimento", "créditos",
+      "colofão", "leituras", "direitos autorais"],
+    contents: ["sumário", "índice"],
+    chapter: "capítulo",
+    refs: "ver |cf\\. |v\\. ",
+    refWords: "fig|figs|figura|figuras|imagem|il|p|pp|pág|págs|cap|capítulo|nota|n",
+    say: [["p. ex.", "por exemplo"], ["i.e.", "isto é"], ["etc.", "etcétera"], ["&", "e"], ["%", " por cento"], ["cf.", "conforme"]],
+  },
+  es: {
+    skip: ["índice", "sumario", "contenido", "notas", "bibliografía", "referencias", "agradecimiento",
+      "créditos", "colofón", "lecturas", "derechos de autor"],
+    contents: ["índice", "sumario", "contenido"],
+    chapter: "capítulo",
+    refs: "ver |véase |cf\\. ",
+    refWords: "fig|figs|figura|figuras|imagen|il|p|pp|pág|págs|cap|capítulo|nota|n",
+    say: [["p. ej.", "por ejemplo"], ["i.e.", "es decir"], ["etc.", "etcétera"], ["&", "y"], ["%", " por ciento"], ["cf.", "véase"]],
+  },
+};
+// Words that are common in one language and rare in the other two
+const MARKERS = {
+  en: ["the", "and", "of", "to", "is", "that", "with", "was", "which", "this", "are", "for", "it", "be"],
+  pt: ["não", "uma", "um", "são", "também", "ao", "os", "das", "dos", "pelo", "pela", "em", "é", "você", "isso", "mais", "foi", "nas", "nos", "às"],
+  es: ["el", "los", "las", "del", "y", "es", "una", "pero", "también", "muy", "su", "fue", "sin", "más", "lo", "al", "en", "está"],
+};
+/// Finds the book's language from a sample of its text. English when unsure.
+export function detectLanguage(text) {
+  const words = text.toLowerCase().split(/[^\p{L}]+/u).filter(Boolean).slice(0, 20000);
+  const score = {};
+  for (const [lang, list] of Object.entries(MARKERS)) {
+    const set = new Set(list);
+    score[lang] = words.filter(w => set.has(w)).length;
+  }
+  const best = Object.keys(score).sort((a, b) => score[b] - score[a])[0];
+  return score[best] >= 20 ? best : "en";
+}
+let L = LANGS.en, LANG = "en"; // the language of the book being made
+function useLanguage(lang) {
+  LANG = LANGS[lang] ? lang : "en"; L = LANGS[LANG];
+  segmenter = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter(LANG, { granularity: "sentence" }) : null;
+}
 
 const r2 = x => Math.round(x * 100) / 100;
 const fontSize = it => Math.hypot(it.transform[2], it.transform[3]) || Math.abs(it.transform[3]) || 0;
@@ -74,6 +126,9 @@ export async function makeBookFromPDF(file, id, progress, job) {
   // captions and running headers, which are set smaller.
   const bodySize = mainTextSize(pages);
   if (bodySize) for (const p of pages) if (!p.scanned) p.text = mainText(p.lines, bodySize);
+  // The book's language: decides the voices and the cleanup words
+  useLanguage(detectLanguage(pages.map(p => p.text || p.raw || "").join("\n")));
+  console.log("[Remagery] language:", LANG);
   // The copyright page (ISBN, printer, licence) isn't read
   for (const p of pages) if (p.text.includes("ISBN")) p.text = "";
 
@@ -166,7 +221,7 @@ export async function makeBookFromPDF(file, id, progress, job) {
   }
   progress("Finishing", 0.99);
   try { await doc.destroy(); } catch (e) {}
-  return { format: "remagery-web", title, authors, cover, chapters };
+  return { format: "remagery-web", title, authors, cover, language: LANG, chapters };
 }
 
 // ---------- Page text ----------
@@ -226,7 +281,8 @@ async function recogniseText(page) {
       document.head.appendChild(s);
     });
   }
-  if (!tesseractWorker) tesseractWorker = await window.Tesseract.createWorker("eng");
+  // Scanned pages are read with English, Portuguese and Spanish together (the book's language isn't known yet)
+  if (!tesseractWorker) tesseractWorker = await window.Tesseract.createWorker(["eng", "por", "spa"]);
   const vp = page.getViewport({ scale: 2 });
   const c = document.createElement("canvas");
   c.width = vp.width; c.height = vp.height;
@@ -284,7 +340,7 @@ async function chapterRanges(doc, pageCount, contents, printed) {
     unique.forEach((m, i) => {
       const end = i + 1 < unique.length ? unique[i + 1][1] : pageCount;
       const low = m[0].toLowerCase();
-      if (SKIP_WORDS.some(w => low.includes(w))) return;
+      if (L.skip.some(w => low.includes(w))) return;
       if (end > m[1]) out.push({ title: m[0] || `Chapter ${out.length + 1}`, start: m[1], end });
     });
   }
@@ -322,10 +378,10 @@ function isDoubled(line) {
   return true;
 }
 
-const segmenter = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter("en", { granularity: "sentence" }) : null;
+let segmenter = typeof Intl !== "undefined" && Intl.Segmenter ? new Intl.Segmenter("en", { granularity: "sentence" }) : null;
 function splitSentences(text) {
   if (segmenter) return [...segmenter.segment(text)].map(s => s.segment.trim()).filter(Boolean);
-  return text.split(/(?<=[.!?…]["”’)]?)\s+(?=[A-Z“"‘(])/).map(s => s.trim()).filter(Boolean);
+  return text.split(/(?<=[.!?…]["”’»)]?)\s+(?=[\p{Lu}“"‘(«¿¡])/u).map(s => s.trim()).filter(Boolean);
 }
 
 function paragraphs(start, end, texts, skip, captions, title = "") {
@@ -354,14 +410,14 @@ function paragraphs(start, end, texts, skip, captions, title = "") {
   if (!lines.length) return [];
   const lengths = lines.map(l => l[0].length).sort((a, b) => a - b);
   const typical = lengths[Math.floor(lengths.length * 3 / 4)];
-  const enders = new Set([".", "?", "!", ":", "\"", "”", "’", ")"]);
+  const enders = new Set([".", "?", "!", ":", "\"", "”", "’", ")", "»"]);
 
   // Join lines into paragraphs, remembering where each page starts
   const paras = [];
   let text = "", marks = [];
   lines.forEach(([line, page], i) => {
     if (!marks.length || marks[marks.length - 1][1] !== page) marks.push([text.length, page]);
-    if (text.endsWith("-") && /^[a-z]/.test(line)) text = text.slice(0, -1) + line;
+    if (text.endsWith("-") && /^\p{Ll}/u.test(line)) text = text.slice(0, -1) + line;
     else text += text ? " " + line : line;
     const short = line.length < typical * 0.75;
     if (i === lines.length - 1 || (short && enders.has(line[line.length - 1]))) {
@@ -374,7 +430,7 @@ function paragraphs(start, end, texts, skip, captions, title = "") {
     const clean = cleanForSpeech(p.text);
     // Skip paragraphs that are mostly numbers (lists of pages, tables of figures)
     const tokens = clean.split(" ");
-    const numeric = tokens.filter(t => /\d/.test(t) || t === "p." || t === "pp.").length;
+    const numeric = tokens.filter(t => /\d/.test(t) || ["p.", "pp.", "pág.", "págs."].includes(t)).length;
     if (tokens.length >= 6 && numeric / tokens.length > 0.45) continue;
     const ss = [];
     let off = 0;
@@ -395,13 +451,18 @@ function paragraphs(start, end, texts, skip, captions, title = "") {
 /// Removes footnote numbers and odd spacing so the voice reads it naturally.
 export function cleanForSpeech(s) {
   let t = s;
-  t = t.replace(/(?<=[A-Za-z.,;:”"’)])\d{1,3}(?=\s|$)/g, "");                       // "word.12 Next"
-  t = t.replace(/\bpp?\.\s*\d+([–-]\d+)?/g, "");                                     // "p. 23", "pp. 12–14"
+  t = t.replace(/(?<=[\p{L}.,;:”"’»)])\d{1,3}(?=\s|$)/gu, "");                     // "word.12 Next"
+  t = t.replace(/(?<![\p{L}])(pp?|págs?)\.\s*\d+([–-]\d+)?/gu, "");                   // "p. 23", "pp. 12–14", "pág. 9"
   t = t.replace(/(https?:\/\/|www\.)\S+/g, "");                                       // web links
-  t = t.replace(/\((see |cf\. )?(fig|figs|figure|figures|p|pp|pl|plate|ch|chapter|note|n)\.?\s*[\d\s,–-]+\)/gi, "");
+  t = t.replace(new RegExp(`\\((${L.refs})?(${L.refWords})\\.?\\s*[\\d\\s,–-]+\\)`, "giu"), ""); // "(fig. 3)"
   t = t.replace(/\[\d+([,–-]\s*\d+)*\]/g, "");
   t = t.replace(/\(\s*\d{1,3}\s*\)/g, "");
-  for (const [a, b] of [["e.g.", "for example"], ["i.e.", "that is"], ["etc.", "and so on"], ["&", "and"], ["%", " percent"], ["cf.", "compare"]]) t = t.split(a).join(b);
+  for (const [a, b] of L.say) {
+    // "etc." ending a sentence keeps its full stop, so the next sentence stays separate
+    if (a.endsWith(".")) t = t.split(a + " ").map((x, k, all) => k < all.length - 1 && /^[\p{Lu}¿¡“"«]/u.test(all[k + 1]) ? x + b + "." : (k < all.length - 1 ? x + b : x)).join(" ");
+    t = t.split(a).join(b);
+  }
+  t = t.replace(/\(\s*\)/g, ""); // brackets left empty after removing "(p. 23)"
   t = t.replace(/\s+([,.;:])/g, "$1").replace(/\s+/g, " ");
   return t.trim();
 }
@@ -421,13 +482,13 @@ function estimateTimings(paras) {
 // ---------- Table of contents ----------
 
 function tableOfContents(texts) {
-  const endsWithNumber = /^(.*?)[\s.…·]*(?:p\.|pp\.|page)?\s*(\d{1,4})\s*$/i;
+  const endsWithNumber = /^(.*?)[\s.…·]*(?:p\.|pp\.|page|pág\.|página)?\s*(\d{1,4})\s*$/iu;
   const pages = [], entries = [];
   const idx = [...texts.keys()];
   const candidates = [...new Set([...idx.slice(0, 30), ...idx.slice(-10)])];
   for (const i of candidates) {
     const lines = texts[i].split("\n").map(l => l.trim())
-      .filter(l => l && !isDoubled(l) && !/^\d+$/.test(l) && l.toLowerCase() !== "contents");
+      .filter(l => l && !isDoubled(l) && !/^\d+$/.test(l) && !L.contents.includes(l.toLowerCase()));
     if (lines.length < 4) continue;
     const found = [];
     let pending = "", numbered = 0;
@@ -444,7 +505,8 @@ function tableOfContents(texts) {
         pending += (pending ? " " : "") + l;
       }
     }
-    const mentions = texts[i].toLowerCase().includes("contents");
+    const low = texts[i].toLowerCase();
+    const mentions = L.contents.some(w => low.includes(w));
     let asc = true;
     for (let k = 1; k < found.length; k++) if (found[k][1] < found[k - 1][1]) asc = false;
     if (found.length >= 4 && asc && (numbered / lines.length >= 0.3 || mentions)) {
@@ -456,7 +518,8 @@ function tableOfContents(texts) {
 }
 
 function cleanContentsTitle(t) {
-  return t.replace(/^(chapter\s+)?\d{1,2}\s*[.):]\s*/i, "").replace(/\s*(p\.|pp\.|page)\s*$/i, "").replace(/[.…·\s]+$/, "").trim();
+  return t.replace(new RegExp(`^(${L.chapter}\\s+)?\\d{1,2}\\s*[.):]\\s*`, "iu"), "")
+    .replace(/\s*(p\.|pp\.|page|pág\.|página)\s*$/iu, "").replace(/[.…·\s]+$/, "").trim();
 }
 
 /// Printed page number → PDF page, from page labels or the number printed at the top or bottom of each page.
@@ -625,7 +688,11 @@ async function renderPage(page, width) {
 
 const PICTURE_WORDS = ["image", "picture", "photo", "photograph", "figure", "fig.", "shown", "shows",
   "pictured", "illustrat", "drawing", "diagram", "poster", "cover", "above", "below", "opposite",
-  "left", "right", "here", "depict", "view", "detail"];
+  "left", "right", "here", "depict", "view", "detail",
+  // Portuguese and Spanish
+  "imagem", "imagen", "figura", "foto", "ilustra", "desenho", "dibujo", "diagrama", "cartaz", "cartel",
+  "capa", "portada", "acima", "abaixo", "arriba", "abajo", "esquerda", "direita", "izquierda", "derecha",
+  "aqui", "aquí", "mostra", "muestra", "detalhe", "detalle", "vista"];
 
 function describeFromBook(sentences, page, near, cap) {
   const capWords = new Set((cap || "").toLowerCase().split(/[^\p{L}]+/u).filter(w => w.length >= 4));

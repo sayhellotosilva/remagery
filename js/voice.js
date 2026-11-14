@@ -167,7 +167,9 @@ export async function usage() {
 
 /// A short sample of a voice, for Settings.
 export async function sample(voice) {
-  const r = await speak(`<speak>This is how your books will sound.</speak>`, voice);
+  const line = voice.startsWith("pt") ? "É assim que os seus livros vão soar." : voice.startsWith("es") ? "Así sonarán tus libros."
+    : "This is how your books will sound.";
+  const r = await speak(`<speak>${line}</speak>`, voice);
   const { parts } = mp3Frames(b64(r.audio));
   return URL.createObjectURL(new Blob(parts, { type: "audio/mpeg" }));
 }

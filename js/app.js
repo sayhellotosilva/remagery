@@ -1,9 +1,9 @@
 // Remagery web app: library, player and sheets in the Studio look.
 import { db, keepStorage } from "./db.js";
-import { prefs, savePrefs } from "./prefs.js";
+import { prefs, savePrefs, voiceFor, setVoice } from "./prefs.js";
 import { player } from "./player.js";
 import { makeBookFromPDF, Cancelled } from "./bookmaker.js";
-import { VOICES, DEFAULT_VOICE } from "./config.js";
+import { voicesFor, LANG_NAMES } from "./config.js";
 import { hasVoiceServer, usage, sample, chapterAudio } from "./voice.js";
 import * as G from "./google.js";
 import { sync, onSync, syncStatus, syncError, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
@@ -37,8 +37,9 @@ const fmt = s => {
 const speedText = s => (s === Math.round(s) ? `${s}x` : `${s}x`);
 function chapterLabel(c) {
   const t = (c.title || "").toLowerCase();
-  if (c.number === 0 || t.startsWith("intro") || t.startsWith("preface")) return "Introduction";
-  if (t.startsWith("notes")) return "Notes";
+  // English, Portuguese and Spanish titles (the app itself stays in English)
+  if (c.number === 0 || t.startsWith("intro") || t.startsWith("pref") || t.startsWith("apresenta")) return "Introduction";
+  if (t.startsWith("notes") || t.startsWith("notas")) return "Notes";
   return `Chapter ${c.number}`;
 }
 function coverTilt(id) {
@@ -377,7 +378,7 @@ async function startMaking(file) {
 async function prepareVoice(rec, book, ci, job, progress, from, to) {
   if (!hasVoiceServer() || !book.chapters[ci]) return;
   try {
-    const audio = await chapterAudio(rec.id, ci, book.chapters[ci], prefs.voice || DEFAULT_VOICE, (d, n) => {
+    const audio = await chapterAudio(rec.id, ci, book.chapters[ci], voiceFor(book.language), (d, n) => {
       if (job.cancelled) return;
       progress(`Preparing the voice · ${d} of ${n}`, from + (n ? d / n : 0) * (to - from));
     });
@@ -717,10 +718,12 @@ let sampleAudio = null;
 function settingsSheet() {
   openSheet("Settings", (close, refill) => {
     const voiceOn = hasVoiceServer();
-    const cur = prefs.voice || DEFAULT_VOICE;
+    // Voices for the open book's language (English when no book is open)
+    const lang = (player.book && player.book.language) || "en";
+    const cur = voiceFor(lang);
     const speeds = [0.8, 1, 1.15, 1.25, 1.5, 1.75, 2];
     const wrap = h(`<div>
-      <div class="label">Voice</div>
+      <div class="label">Voice · ${LANG_NAMES[lang] || "English"}</div>
       ${voiceOn ? `<div class="options" id="voices"></div><div id="use"></div>`
         : `<p class="help">The Google voice isn't connected, so the browser's own voice reads. It stops when the phone locks.</p>`}
       <div class="label">Images</div>
@@ -754,12 +757,12 @@ function settingsSheet() {
     wrap.querySelector("#chime").onclick = e => { prefs.chime = !(prefs.chime !== false); savePrefs(); e.currentTarget.setAttribute("aria-pressed", prefs.chime); };
     if (voiceOn) {
       const list = wrap.querySelector("#voices");
-      for (const v of VOICES) {
+      for (const v of voicesFor(lang)) {
         const on = v.id === cur;
         const row = h(`<button class="opt ${on ? "on" : ""}"><span>${esc(v.label)}</span><span>${on ? I.tick : ""}</span></button>`);
         row.onclick = async () => {
-          const changed = prefs.voice !== v.id;
-          prefs.voice = v.id; savePrefs(); refill();
+          const changed = cur !== v.id;
+          setVoice(lang, v.id); refill();
           if (!player.isPlaying) {
             try { if (sampleAudio) sampleAudio.pause(); sampleAudio = new Audio(await sample(v.id)); sampleAudio.play(); } catch (e) {}
           }

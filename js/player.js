@@ -5,7 +5,7 @@
 import { db } from "./db.js";
 import { PACE, DEFAULT_VOICE } from "./config.js";
 import { hasVoiceServer, chapterAudio, VoiceError } from "./voice.js";
-import { prefs, savePrefs } from "./prefs.js";
+import { prefs, savePrefs, voiceFor } from "./prefs.js";
 
 // Tells the Drive sync that progress or bookmarks changed
 const changed = () => window.dispatchEvent(new Event("remagery:changed"));
@@ -49,7 +49,8 @@ class Player {
     this.unlocked = true;
   }
 
-  get voice() { return prefs.voice || DEFAULT_VOICE; }
+  get lang() { return (this.book && this.book.language) || "en"; }
+  get voice() { return voiceFor(this.lang); }
   get speed() { return prefs.speed || 1; }
   set speed(v) {
     prefs.speed = v; savePrefs();
@@ -253,9 +254,10 @@ class Player {
     clearInterval(this.voiceClock);
   }
   pickBrowserVoice() {
-    const vs = (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(v => v.lang.startsWith("en"));
+    const want = { en: "en", pt: "pt-BR", es: "es" }[this.lang] || "en";
+    const vs = (window.speechSynthesis ? speechSynthesis.getVoices() : []).filter(v => v.lang.replace("_", "-").startsWith(want));
     return vs.find(v => /premium|enhanced/i.test(v.name) && v.lang === "en-GB") || vs.find(v => /premium|enhanced/i.test(v.name))
-      || vs.find(v => v.lang === "en-GB") || vs[0] || null;
+      || vs.find(v => v.lang === "en-GB" || v.lang === "es-ES") || vs[0] || null;
   }
   speakFrom(k) {
     this.stopVoice();
