@@ -26,6 +26,7 @@ const I = {
   bmFull: '<svg viewBox="0 0 24 24" width="17" height="17" fill="currentColor" stroke="currentColor" stroke-width="1.6"><path d="M6.5 3.5h11v17l-5.5-4-5.5 4z"/></svg>',
   x: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   plus: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  share: '<svg viewBox="0 0 24 24" width="21" height="21" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11.5M7.5 8 12 3.5 16.5 8"/><path d="M6.5 11.5H5.5v9h13v-9h-1"/></svg>',
   tick: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
 };
 
@@ -175,6 +176,7 @@ async function renderLibrary() {
       <div id="miniSlot"></div>
       <div class="dock-row">
         <button class="add" data-act="add" aria-label="Add a book">${I.plus}ADD BOOK</button>
+        <button class="aa" data-act="share" aria-label="Share the books you're reading this month">${I.share}</button>
         <button class="aa" data-act="settings" aria-label="Settings">Aa</button>
       </div>
     </div>
@@ -224,12 +226,6 @@ function accountLine() {
   const tokenOK = !!G.token();
   const text = (st && st.length < 22 ? st : st ? "Syncing" : "") || (tokenOK ? "Synced" : "Tap to sync");
   const el = h(`<div id="acctSlot" class="acct"><button class="mono soft acct-btn">${esc(email)} · ${esc(text)}</button></div>`);
-  // Share this month's books (only when there are some)
-  if (booksThisMonth(books).length) {
-    const sh = h(`<button class="mono acct-share" aria-label="Share the books you're reading this month">Share ↗</button>`);
-    sh.onclick = shareSheet;
-    el.appendChild(sh);
-  }
   el.querySelector(".acct-btn").onclick = () => {
     if (!tokenOK) { G.signIn(); return; }
     if (!G.hasDrive()) {
@@ -725,6 +721,9 @@ function sleepSheet() {
 /// Shows this month's share card, with a button that opens the phone's share sheet.
 function shareSheet() {
   openSheet("Share", (close) => {
+    if (!booksThisMonth(books).length) {
+      return h(`<div class="share-wrap"><p class="help">Your card shows the books you read this month. Open a book and listen for a bit, then come back to share it.</p></div>`);
+    }
     const wrap = h(`<div class="share-wrap">
       <div class="share-preview"><span class="mono soft">Making your card…</span></div>
       <p class="help">Your books this month, ready for Instagram Stories, WhatsApp or X.</p>
@@ -858,6 +857,7 @@ document.addEventListener("click", e => {
     case "add": addSheet(); break;
     case "signin": G.signIn(); break;
     case "settings": settingsSheet(); break;
+    case "share": shareSheet(); break;
     case "close": closePlayer(); break;
     case "chapters": chaptersSheet(0); break;
     case "bookmarks": chaptersSheet(1); break;

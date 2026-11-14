@@ -217,8 +217,8 @@ a.tag { text-decoration: none; }
 html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
 
 /* Share card */
-.acct-share { margin-left: auto; height: 32px; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
 .share-wrap { display: grid; gap: 16px; }
 .share-preview { display: grid; place-items: center; min-height: 220px; }
 .share-preview img { width: auto; max-width: 100%; max-height: 58vh; border-radius: 14px; box-shadow: 0 0 0 1px var(--line); }
 .share-go:disabled { opacity: .4; }
+.aa svg { display: block; margin: 0 auto; }
