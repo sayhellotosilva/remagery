@@ -11,6 +11,7 @@
 
 import { db } from "./db.js";
 import * as G from "./google.js";
+import { mergeLater } from "./later.js";
 
 const ROOT_KEY = "remagery.driveRoot";
 const GONE_KEY = "remagery.removed";
@@ -212,7 +213,10 @@ export async function sync() {
         }
       }
 
-      const out = { app: "Remagery", version: 1, updated: Date.now(), books: merged.map(pick), removed };
+      // The "Later" list (titles to read in the future)
+      const later = mergeLater(remote.data.later || []);
+      if (later.changed) changedLocal = true;
+      const out = { app: "Remagery", version: 1, updated: Date.now(), books: merged.map(pick), removed, later: later.list };
       const file = new Blob([JSON.stringify(out, null, 1)], { type: "application/json" });
       if (remote.id) await G.upload(file, { id: remote.id, mime: "application/json" });
       else await G.upload(file, { name: "library.json", parent: root, props: { remagery: "library" }, mime: "application/json" });

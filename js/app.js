@@ -5,6 +5,7 @@ import { player } from "./player.js";
 import { makeBookFromPDF, Cancelled } from "./bookmaker.js";
 import { voicesFor, LANG_NAMES } from "./config.js";
 import { makeShareCard, booksThisMonth, SITE } from "./sharecard.js";
+import { laterList, addLater, removeLater } from "./later.js";
 import { hasVoiceServer, usage, sample, chapterAudio } from "./voice.js";
 import * as G from "./google.js";
 import { sync, onSync, syncStatus, syncError, uploadBook, downloadBook, removeBook, rootLink, scheduleSync } from "./sync.js";
@@ -157,6 +158,95 @@ function welcomeView() {
   </main>`);
 }
 
+// Two pages: Library and Later (swipe left and right)
+let libPage = "library";
+let pendingLater = null; // a Later title whose PDF is being chosen
+const pageDots = () => `<span class="page-dots" aria-hidden="true"><i class="${libPage === "library" ? "on" : ""}"></i><i class="${libPage === "later" ? "on" : ""}"></i></span>`;
+function goPage(page) {
+  if (page === libPage) return;
+  const dir = page === "later" ? "from-right" : "from-left";
+  libPage = page;
+  renderLibrary().then(() => { if (libraryEl) { libraryEl.classList.add(dir); setTimeout(() => libraryEl && libraryEl.classList.remove(dir), 320); } });
+}
+function addSwipe(el) {
+  let x0 = 0, y0 = 0, t0 = 0, on = false;
+  el.addEventListener("touchstart", e => {
+    if (e.touches.length !== 1 || e.target.closest(".dock, .sheet-back")) { on = false; return; }
+    on = true; x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; t0 = Date.now();
+  }, { passive: true });
+  el.addEventListener("touchend", e => {
+    if (!on) return; on = false;
+    const t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if (Math.abs(dx) < 60 || Math.abs(dy) > Math.abs(dx) * 0.6 || Date.now() - t0 > 800) return;
+    if (dx < 0 && libPage === "library") goPage("later");
+    else if (dx > 0 && libPage === "later") goPage("library");
+  }, { passive: true });
+}
+
+/// The Later page: titles you want to read, as little squares.
+function laterView() {
+  const list = laterList();
+  const playing = !!player.record;
+  const el = h(`<main class="library gutter ${playing ? "playing" : ""}">
+    <div class="lib-top"><h1>Later</h1>${pageDots()}${switchHTML()}</div>
+    <div class="acct"><span class="mono soft">${list.length ? `${list.length} to read` : "To read in the future"}</span></div>
+    <div class="later-grid" id="later"></div>
+    <div class="dock gutter">
+      <div id="miniSlot"></div>
+      <div class="dock-row">
+        <button class="add" data-act="add-later" aria-label="Add a title to read later">${I.plus}ADD TITLE</button>
+        <button class="aa" data-act="settings" aria-label="Settings">Aa</button>
+        <button class="aa" data-act="share" aria-label="Share the PDFs you're reading this month">${I.share}</button>
+      </div>
+    </div>
+  </main>`);
+  const grid = el.querySelector("#later");
+  if (!list.length) {
+    grid.replaceWith(h(`<div class="empty"><hr class="hair">
+      <div class="step"><span class="mono">01</span><span>Tap Add title and write a book you want to read, so you don't forget it.</span></div>
+      <div class="step"><span class="mono">02</span><span>When you have its PDF, tap the square and choose the PDF. It moves to your Library.</span></div>
+      <div class="step"><span class="mono">03</span><span>Swipe right to go back to your Library.</span></div>
+    </div>`));
+  }
+  for (const it of list) {
+    const sq = h(`<button class="later-sq" style="transform:rotate(${coverTilt(it.id) / 2}deg)" aria-label="${esc(it.title)}${it.author ? ", " + esc(it.author) : ""}. Tap to add its PDF">
+      <span class="later-title" style="font-size:${laterSize(it.title)}px">${esc(it.title)}</span>${it.author ? `<span class="later-author mono">${esc(it.author)}</span>` : ""}</button>`);
+    sq.addEventListener("click", () => { pendingLater = { id: it.id, at: Date.now() }; addSheet(it.title); });
+    longPress(sq, () => confirmDialog("Remove from Later?", `“${it.title}” is taken off your Later list.`, "Remove", () => { removeLater(it.id); scheduleSync(2000); renderLibrary(); }));
+    grid.appendChild(sq);
+  }
+  el.querySelector("#miniSlot").replaceWith(miniPlayer());
+  return el;
+}
+
+/// Smaller type for titles with long words, so words aren't broken in the middle.
+function laterSize(t) {
+  const longest = Math.max(...t.split(/\s+/).map(w => w.length));
+  return longest > 12 ? 10.5 : longest > 9 ? 12 : 14;
+}
+
+function addLaterSheet() {
+  openSheet("Add a title", close => {
+    const wrap = h(`<form class="later-form">
+      <label class="label" for="lt">Title</label>
+      <input id="lt" class="field" type="text" autocomplete="off" autocapitalize="words" placeholder="The book you want to read" required>
+      <label class="label" for="la">Author (if you know it)</label>
+      <input id="la" class="field" type="text" autocomplete="off" autocapitalize="words">
+      <button class="add" type="submit" style="margin-top:18px">${I.plus}ADD TITLE</button>
+    </form>`);
+    wrap.onsubmit = e => {
+      e.preventDefault();
+      const t = wrap.querySelector("#lt").value.trim();
+      if (!t) { wrap.querySelector("#lt").focus(); return; }
+      addLater(t, wrap.querySelector("#la").value);
+      scheduleSync(2000);
+      close(); renderLibrary();
+    };
+    setTimeout(() => wrap.querySelector("#lt").focus(), 250);
+    return wrap;
+  });
+}
+
 async function renderLibrary() {
   if (needsHomeScreen) { renderGuide(); return; }
   // Signing in is required: your library lives in your Google Drive
@@ -167,9 +257,16 @@ async function renderLibrary() {
     return;
   }
   await loadBooks();
+  if (libPage === "later") {
+    const lv = laterView();
+    addSwipe(lv);
+    if (libraryEl) libraryEl.replaceWith(lv); else $app.prepend(lv);
+    libraryEl = lv;
+    return;
+  }
   const playing = !!player.record;
   const el = h(`<main class="library gutter ${playing ? "playing" : ""}">
-    <div class="lib-top"><h1>Library</h1>${switchHTML()}</div>
+    <div class="lib-top"><h1>Library</h1>${pageDots()}${switchHTML()}</div>
     <div id="acctSlot"></div>
     <div class="grid" id="grid"></div>
     <div class="dock gutter">
@@ -210,6 +307,7 @@ async function renderLibrary() {
   }
   el.querySelector("#miniSlot").replaceWith(miniPlayer());
   el.querySelector("#acctSlot").replaceWith(accountLine());
+  addSwipe(el);
   if (libraryEl) libraryEl.replaceWith(el); else $app.prepend(el);
   libraryEl = el;
 }
@@ -242,9 +340,9 @@ function accountLine() {
 }
 function refreshAccount() { const a = libraryEl && libraryEl.querySelector("#acctSlot"); if (a) a.replaceWith(accountLine()); }
 
-function addSheet() {
+function addSheet(forTitle = "") {
   if (!G.googleReady()) { picker.click(); return; }
-  openSheet("Add a PDF", close => {
+  openSheet(forTitle ? "Add its PDF" : "Add a PDF", close => {
     const wrap = h(`<div class="options">
       <button class="opt add-opt" data-src="drive"><span><span class="opt-title">From Google Drive</span><span class="opt-sub">Choose a PDF in your Drive</span></span></button>
       <button class="opt add-opt" data-src="phone"><span><span class="opt-title">From this phone</span><span class="opt-sub">Files, iCloud, Downloads</span></span></button>
@@ -331,6 +429,10 @@ async function startMaking(file) {
     alertDialog("No new PDFs this month", `You've started ${u.bookLimit} new PDFs this month. You can add more from the 1st. PDFs you've already started keep playing.`);
     return;
   }
+  // Chosen from a Later square: it leaves Later and the book goes to the Library
+  if (pendingLater && Date.now() - pendingLater.at < 10 * 60000) { removeLater(pendingLater.id); scheduleSync(5000); }
+  pendingLater = null;
+  libPage = "library";
   const fromDrive = !!file.driveId;
   const job = { id, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]/g, " "), status: "Reading the PDF", progress: 0, cancelled: false };
   making.unshift(job);
@@ -857,6 +959,7 @@ document.addEventListener("click", e => {
     case "add": addSheet(); break;
     case "signin": G.signIn(); break;
     case "settings": settingsSheet(); break;
+    case "add-later": addLaterSheet(); break;
     case "share": shareSheet(); break;
     case "close": closePlayer(); break;
     case "chapters": chaptersSheet(0); break;

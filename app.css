@@ -226,3 +226,19 @@ html { touch-action: manipulation; -webkit-text-size-adjust: 100%; text-size-adj
 .acct-btn { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; }
 .acct-email { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .acct-state { flex: none; }
+
+/* Library ↔ Later pages */
+.lib-top { position: relative; }
+.page-dots { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -20%); display: flex; gap: 6px; }
+.page-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--line); }
+.page-dots i.on { background: var(--ink); }
+.library.from-right { animation: from-right .3s ease; }
+.library.from-left { animation: from-left .3s ease; }
+@keyframes from-right { from { transform: translateX(28%); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes from-left { from { transform: translateX(-28%); opacity: 0; } to { transform: none; opacity: 1; } }
+.later-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 16px; padding-top: 18px; max-width: 760px; }
+.later-sq { aspect-ratio: 1; min-width: 0; border-radius: 9px; background: var(--sheet); box-shadow: 0 0 0 1px var(--line); padding: 10px; display: flex; flex-direction: column; justify-content: space-between; text-align: left; -webkit-touch-callout: none; user-select: none; overflow: hidden; }
+.later-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: -.01em; line-height: 1.1; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
+.later-author { font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.later-form { display: grid; gap: 6px; }
+.field { font: inherit; font-size: 17px; height: 50px; border-radius: 14px; border: 1px solid var(--line); background: var(--paper); color: var(--ink); padding: 0 14px; width: 100%; box-sizing: border-box; }
